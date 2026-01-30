@@ -1,244 +1,241 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <title>真・四人将棋</title>
 <link rel="icon" href="favicon.ico" type="image/ico">
-<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{
-  --cell:40px; --gap:2px;
-  --wood:#f4d9a6; --wood2:#e2b36d;
-  --bg:#d9932a; --frame:#c6862c;
-  --mark:#8fd3ff; --sel:#ff0;
+body{
+  background:#eee;
+  font-family:sans-serif;
+  display:flex;
+  justify-content:center;
 }
-body{margin:0;padding:10px;background:var(--bg);font-family:sans-serif}
-h1{font-size:18px;margin:6px 0}
-
-.layout{
+#wrap{
   display:grid;
   grid-template-columns:200px auto 200px;
-  grid-template-rows:auto auto;
   gap:10px;
-  align-items:start;
+  margin-top:20px;
 }
-
-.board{
-  grid-column:2;
-  grid-row:1 / span 2;
-  display:grid;
-  grid-template-columns:repeat(15,var(--cell));
-  grid-template-rows:repeat(15,var(--cell));
-  gap:var(--gap);
-  background:var(--frame);
-  padding:6px;
-  border-radius:8px;
-}
-
-.cell{
-  background:var(--wood);
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;cursor:pointer;
-}
-.dark{background:var(--wood2)}
-.wall{background:var(--bg);pointer-events:none}
-.sel{outline:3px solid var(--sel)}
-.move{background:var(--mark)!important}
-
-.p0{transform:rotate(180deg)}
-.p1{transform:rotate(270deg)}
-.p2{transform:rotate(0deg)}
-.p3{transform:rotate(90deg)}
-
 .hand{
-  background:#fff3d4;
-  padding:6px;
-  border-radius:6px;
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:4px;
+  align-content:start;
 }
-.hand h3{font-size:13px;margin:0 0 6px;text-align:center}
-.list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-.pc{
-  background:#fff;padding:4px 6px;
-  border-radius:4px;border:1px solid #999;
+.hand div{
+  background:#ddd;
+  border:1px solid #999;
+  text-align:center;
   cursor:pointer;
 }
-.topbar{margin-bottom:6px}
-button{padding:6px 10px;border-radius:6px;border:1px solid #aaa;background:#fff7e0}
+table{
+  border-collapse:collapse;
+}
+td{
+  width:36px;height:36px;
+  text-align:center;
+  border:1px solid #444;
+  font-size:20px;
+  cursor:pointer;
+  user-select:none;
+}
+td.block{background:#333;cursor:default;}
+td.mark{background:#9f9;}
+td.sel{background:#ff9;}
+.dead{opacity:0.3;}
 </style>
 </head>
 <body>
 
-<h1>真・四人将棋</h1>
+<div id="wrap">
+  <div id="hand0" class="hand"></div>
+  <table id="board"></table>
+  <div id="hand1" class="hand"></div>
 
-<div class="topbar">
-  <span id="turn"></span>
-  <button onclick="undo()">待った</button>
-  <button onclick="init()">初期化</button>
-</div>
-
-<div class="layout">
-  <div class="hand" id="hand3"></div>
-  <div class="hand" id="hand1"></div>
-
-  <div class="board" id="board"></div>
-
-  <div class="hand" id="hand0"></div>
-  <div class="hand" id="hand2"></div>
+  <div id="hand3" class="hand"></div>
+  <div></div>
+  <div id="hand2" class="hand"></div>
 </div>
 
 <script>
-const N=15;
-const boardEl=document.getElementById('board');
-const turnEl=document.getElementById('turn');
+const SIZE=15;
+const BLOCK=3;
+const players=[0,1,2,3]; // 上右下左
+let turn=0;
+let dead=[false,false,false,false];
+let sel=null,marks=[];
+let board=[];
+let hands=[[],[],[],[]];
 
-const handsEl=[
-  document.getElementById('hand0'),
-  document.getElementById('hand1'),
-  document.getElementById('hand2'),
-  document.getElementById('hand3')
-];
+const promote={P:'+P',L:'+L',N:'+N',S:'+S',B:'+B',R:'+R'};
+const unpromote={'+P':'P','+L':'L','+N':'N','+S':'S','+B':'B','+R':'R'};
 
-let board,hands,turn,sel=null,marks=[],history=[];
-
-const back=['香','桂','銀','金','王','金','銀','桂','香'];
-const promote={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
-const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
-
-function inPlay(r,c){
-  if(r<3&&c<3) return false;
-  if(r<3&&c>=12) return false;
-  if(r>=12&&c<3) return false;
-  if(r>=12&&c>=12) return false;
-  return r>=0&&r<N&&c>=0&&c<N;
-}
-
-function dir(o){return[[1,0],[0,-1],[-1,0],[0,1]][o];}
-
-/* 向かい陣地判定 */
-function isEnemyZone(o,r,c){
-  if(o===0) return r>=12;
-  if(o===2) return r<=2;
-  if(o===1) return c<=2;
-  if(o===3) return c>=12;
-}
+const dirs={
+  P:[[1,0]],
+  L:[[1,0,true]],
+  N:[[2,-1],[2,1]],
+  S:[[1,-1],[1,0],[1,1],[-1,-1],[-1,1]],
+  G:[[1,-1],[1,0],[1,1],[0,-1],[0,1],[-1,0]],
+  K:[[1,-1],[1,0],[1,1],[0,-1],[0,1],[-1,-1],[-1,0],[-1,1]],
+  B:[[1,1,true],[1,-1,true],[-1,1,true],[-1,-1,true]],
+  R:[[1,0,true],[-1,0,true],[0,1,true],[0,-1,true]],
+  '+P':[[1,-1],[1,0],[1,1],[0,-1],[0,1],[-1,0]],
+  '+L':[[1,-1],[1,0],[1,1],[0,-1],[0,1],[-1,0]],
+  '+N':[[1,-1],[1,0],[1,1],[0,-1],[0,1],[-1,0]],
+  '+S':[[1,-1],[1,0],[1,1],[0,-1],[0,1],[-1,0]],
+  '+B':[[1,1,true],[1,-1,true],[-1,1,true],[-1,-1,true],[1,0],[-1,0],[0,1],[0,-1]],
+  '+R':[[1,0,true],[-1,0,true],[0,1,true],[0,-1,true],[1,1],[1,-1],[-1,1],[-1,-1]]
+};
 
 function init(){
-  board=[...Array(N)].map(()=>Array(N).fill(null));
-  hands=[[],[],[],[]];
-  turn=0; sel=null; marks=[]; history=[];
-  placeInitial(); draw();
-}
-
-function placeInitial(){
-  const cols=[3,4,5,6,7,8,9,10,11];
-  for(let i=0;i<9;i++) board[0][cols[i]]={t:back[i],o:0};
-  board[1][4]={t:'飛',o:0}; board[1][10]={t:'角',o:0};
-  for(let i=0;i<9;i++) board[2][cols[i]]={t:'歩',o:0};
-
-  const rows=[3,4,5,6,7,8,9,10,11];
-  for(let i=0;i<9;i++) board[rows[i]][14]={t:back[i],o:1};
-  board[4][13]={t:'飛',o:1}; board[10][13]={t:'角',o:1};
-  for(let i=0;i<9;i++) board[rows[i]][12]={t:'歩',o:1};
-
-  for(let i=0;i<9;i++) board[14][cols[8-i]]={t:back[i],o:2};
-  board[13][10]={t:'飛',o:2}; board[13][4]={t:'角',o:2};
-  for(let i=0;i<9;i++) board[12][cols[8-i]]={t:'歩',o:2};
-
-  for(let i=0;i<9;i++) board[rows[8-i]][0]={t:back[i],o:3};
-  board[10][1]={t:'飛',o:3}; board[4][1]={t:'角',o:3};
-  for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
-}
-
-function genMoves(p,r,c){
-  let res=[],d=dir(p.o);
-  const add=(dr,dc,rep=false)=>{
-    let nr=r+dr,nc=c+dc;
-    while(inPlay(nr,nc)){
-      if(board[nr][nc]&&board[nr][nc].o===p.o) break;
-      res.push([nr,nc]);
-      if(board[nr][nc]||!rep) break;
-      nr+=dr; nc+=dc;
+  for(let r=0;r<SIZE;r++){
+    board[r]=[];
+    for(let c=0;c<SIZE;c++){
+      if((r<BLOCK||r>=SIZE-BLOCK)&&(c<BLOCK||c>=SIZE-BLOCK)){
+        board[r][c]='X';
+      }else board[r][c]=null;
     }
-  };
-  const T=p.t;
-  if(T==='歩') add(d[0],d[1]);
-  else if(T==='香') add(d[0],d[1],true);
-  else if(T==='桂') add(d[0]*2+d[1],d[1]*2-d[0]);
-  else if(T==='銀')
-    [[d[0],d[1]],[d[1],-d[0]],[-d[1],d[0]],[-d[0]+d[1],-d[1]-d[0]],[-d[0]-d[1],-d[1]+d[0]]].forEach(x=>add(x[0],x[1]));
-  else if(T==='金'||['と','杏','圭','全'].includes(T))
-    [[d[0],d[1]],[d[1],-d[0]],[-d[1],d[0]],[d[0]-d[1],d[1]+d[0]],[-d[0]+d[1],-d[1]-d[0]]].forEach(x=>add(x[0],x[1]));
-  else if(T==='角'||T==='馬'){
-    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(x=>add(x[0],x[1],true));
-    if(T==='馬') [[1,0],[-1,0],[0,1],[0,-1]].forEach(x=>add(x[0],x[1]));
   }
-  else if(T==='飛'||T==='龍'){
-    [[1,0],[-1,0],[0,1],[0,-1]].forEach(x=>add(x[0],x[1],true));
-    if(T==='龍') [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(x=>add(x[0],x[1]));
-  }
-  else if(T==='王') for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++) if(dr||dc) add(dr,dc);
-  return res;
+  place(0,3,7,'K'); place(0,4,7,'P'); place(0,5,7,'L');
+  place(14,11,7,'K'); place(14,10,7,'P'); place(14,9,7,'L');
+  place(7,14,11,'K'); place(7,14,10,'P'); place(7,14,9,'L');
+  place(7,0,3,'K'); place(7,0,4,'P'); place(7,0,5,'L');
+  draw();
 }
 
-function clickCell(r,c){
-  if(!inPlay(r,c)) return;
-  if(sel){
-    if(marks.some(m=>m[0]===r&&m[1]===c)){
-      history.push(JSON.stringify({board,hands,turn}));
-      const p=board[sel.r][sel.c];
-      board[r][c]=p; board[sel.r][sel.c]=null;
+function place(r,c,o,t){ board[r][c]={o,t}; }
 
-      if(promote[p.t] && isEnemyZone(p.o,r,c)){
-        if(confirm('成りますか？')) p.t=promote[p.t];
+function draw(){
+  const tb=document.getElementById('board');
+  tb.innerHTML='';
+  for(let r=0;r<SIZE;r++){
+    const tr=document.createElement('tr');
+    for(let c=0;c<SIZE;c++){
+      const td=document.createElement('td');
+      if(board[r][c]==='X'){td.className='block';}
+      else{
+        const p=board[r][c];
+        if(p){
+          td.textContent=p.t;
+          if(dead[p.o]) td.classList.add('dead');
+        }
+        if(sel&&sel.r===r&&sel.c===c) td.classList.add('sel');
+        if(marks.some(m=>m.r===r&&m.c===c)) td.classList.add('mark');
+        td.onclick=()=>click(r,c);
       }
-      turn=(turn+1)%4;
-      sel=null; marks=[]; draw();
+      tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  }
+  for(let i=0;i<4;i++){
+    const h=document.getElementById('hand'+i);
+    h.innerHTML='';
+    hands[i].forEach((t,idx)=>{
+      const d=document.createElement('div');
+      d.textContent=t;
+      d.onclick=()=>{ if(turn===i) sel={hand:i,idx,t}; };
+      h.appendChild(d);
+    });
+  }
+}
+
+function click(r,c){
+  if(dead[turn]){nextTurn();return;}
+  if(sel&&sel.hand!=null){
+    if(board[r][c]==null){
+      board[r][c]={o:turn,t:sel.t};
+      hands[turn].splice(sel.idx,1);
+      sel=null;marks=[];
+      endTurn();
     }
     return;
   }
   const p=board[r][c];
   if(p&&p.o===turn){
     sel={r,c};
-    marks=genMoves(p,r,c);
-    draw();
+    marks=getMoves(r,c,p);
+  }else if(sel){
+    if(marks.some(m=>m.r===r&&m.c===c)){
+      move(r,c);
+    }
   }
+  draw();
 }
 
-function draw(){
-  boardEl.innerHTML='';
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    const d=document.createElement('div');
-    if(!inPlay(r,c)){d.className='cell wall';boardEl.appendChild(d);continue;}
-    d.className='cell '+((r+c)%2?'dark':'');
-    if(sel&&sel.r===r&&sel.c===c)d.classList.add('sel');
-    if(marks.some(m=>m[0]===r&&m[1]===c))d.classList.add('move');
-    if(board[r][c]){
-      const s=document.createElement('span');
-      s.textContent=board[r][c].t;
-      s.className='p'+board[r][c].o;
-      d.appendChild(s);
-    }
-    d.onclick=()=>clickCell(r,c);
-    boardEl.appendChild(d);
+function move(r,c){
+  const m=board[sel.r][sel.c];
+  const cap=board[r][c];
+  board[sel.r][sel.c]=null;
+  board[r][c]=m;
+  if(cap){
+    hands[turn].push(unpromote[cap.t]||cap.t);
   }
-  turnEl.textContent='手番：P'+(turn+1);
+  if(promote[m.t] && enemyZone(m.o,r)){
+    if(confirm('成りますか？')) m.t=promote[m.t];
+  }
+  sel=null;marks=[];
+  endTurn();
+}
 
-  handsEl.forEach((el,o)=>{
-    el.innerHTML='<h3>P'+(o+1)+' 持ち駒</h3><div class="list"></div>';
-    const list=el.querySelector('.list');
-    hands[o].forEach(pc=>{
-      const d=document.createElement('div');
-      d.className='pc'; d.textContent=pc;
-      list.appendChild(d);
-    });
+function enemyZone(o,r){
+  if(o===0) return r>10;
+  if(o===2) return r<4;
+  if(o===1) return r<4;
+  if(o===3) return r>10;
+}
+
+function getMoves(r,c,p){
+  let res=[];
+  dirs[p.t].forEach(d=>{
+    let dr=d[0],dc=d[1],slide=d[2];
+    let rr=r,cc=c;
+    while(true){
+      rr+=dr;cc+=dc;
+      if(rr<0||cc<0||rr>=SIZE||cc>=SIZE)break;
+      if(board[rr][cc]==='X')break;
+      if(board[rr][cc]){
+        if(board[rr][cc].o!==p.o) res.push({r:rr,c:cc});
+        break;
+      }
+      res.push({r:rr,c:cc});
+      if(!slide)break;
+    }
+  });
+  return res;
+}
+
+function endTurn(){
+  checkMate();
+  nextTurn();
+}
+
+function nextTurn(){
+  do{turn=(turn+1)%4;}while(dead[turn]);
+  draw();
+}
+
+function checkMate(){
+  players.forEach(p=>{
+    if(dead[p])return;
+    if(!hasKing(p)){
+      dead[p]=true;
+      removePieces(p);
+    }
   });
 }
 
-function undo(){
-  if(!history.length) return;
-  const h=JSON.parse(history.pop());
-  board=h.board; hands=h.hands; turn=h.turn;
-  sel=null; marks=[]; draw();
+function hasKing(p){
+  for(let r=0;r<SIZE;r++)
+    for(let c=0;c<SIZE;c++)
+      if(board[r][c]&&board[r][c].o===p&&board[r][c].t==='K') return true;
+  return false;
+}
+
+function removePieces(p){
+  for(let r=0;r<SIZE;r++)
+    for(let c=0;c<SIZE;c++)
+      if(board[r][c]&&board[r][c].o===p) board[r][c]=null;
 }
 
 init();

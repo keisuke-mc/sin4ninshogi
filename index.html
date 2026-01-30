@@ -1,316 +1,264 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>四人将棋 15x15 完全版</title>
+<meta charset="utf-8">
+<title>四人将棋 15×15 完成版</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body{
-  margin:0;
-  background:#2b2b2b;
-  color:#eee;
-  font-family:system-ui;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
+:root{
+  --cell:40px; --gap:2px;
+  --wood:#f4d9a6; --wood2:#e2b36d;
+  --bg:#d9932a; --frame:#c6862c;
+  --mark:#8fd3ff; --sel:#ff0;
 }
-#wrap{
-  display:grid;
-  grid-template-columns:220px 1fr 220px;
-  gap:12px;
-  align-items:center;
-}
-.side{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  min-height:600px;
-}
-.holder{
-  border:1px solid #555;
-  padding:6px;
-  min-height:120px;
-}
-.holder h3{
-  margin:0 0 4px;
-  font-size:14px;
-  text-align:center;
-}
-.holder .piece{
-  display:inline-block;
-  margin:2px;
-}
-#board{
-  display:grid;
-  grid-template-columns:repeat(15,36px);
-  grid-template-rows:repeat(15,36px);
-  background:#cfa96a;
-  padding:6px;
-}
-.cell{
-  width:36px;
-  height:36px;
-  border:1px solid #555;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:bold;
-  cursor:pointer;
-  user-select:none;
-}
-.disabled{
-  background:#444;
-  cursor:default;
-}
-.piece{
-  background:#f5deb3;
-  border:1px solid #333;
-  width:30px;
-  height:30px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.p1{color:#000;}
-.p2{color:#0033cc;}
-.p3{color:#009933;}
-.p4{color:#cc0000;}
+body{margin:0;padding:10px;background:var(--bg);font-family:sans-serif}
+h1{font-size:18px;margin:6px 0}
+.top{margin-bottom:6px}
+button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7e0}
 
-.highlight{
-  outline:3px solid red;
+.layout{
+  display:grid;
+  grid-template-columns:200px auto 200px;
+  grid-template-rows:auto auto;
+  gap:10px;
 }
-.selected{
-  outline:3px solid blue;
+
+.board{
+  grid-column:2;
+  grid-row:1 / span 2;
+  display:grid;
+  grid-template-columns:repeat(15,40px);
+  grid-template-rows:repeat(15,40px);
+  gap:2px;
+  background:var(--frame);
+  padding:6px;
+  border-radius:8px;
 }
-#controls{
-  position:fixed;
-  bottom:10px;
-  left:50%;
-  transform:translateX(-50%);
+
+.cell{
+  background:var(--wood);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;cursor:pointer;
 }
+.dark{background:var(--wood2)}
+.wall{background:var(--bg);pointer-events:none}
+.sel{outline:3px solid var(--sel)}
+.move{background:var(--mark)!important}
+
+.p0{transform:rotate(180deg)}
+.p1{transform:rotate(270deg)}
+.p2{transform:rotate(0deg)}
+.p3{transform:rotate(90deg)}
+
+.hand{
+  background:#fff3d4;
+  padding:6px;border-radius:6px;
+}
+.hand h3{font-size:13px;margin:0 0 6px;text-align:center}
+.list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.pc{
+  background:#fff;padding:4px 6px;
+  border-radius:4px;border:1px solid #999;
+  cursor:pointer;
+}
+.dead{opacity:.35}
 </style>
 </head>
 <body>
 
-<div id="wrap">
-  <div class="side">
-    <div class="holder" id="hold1"><h3>P1</h3></div>
-    <div class="holder" id="hold4"><h3>P4</h3></div>
-  </div>
-
-  <div id="board"></div>
-
-  <div class="side">
-    <div class="holder" id="hold2"><h3>P2</h3></div>
-    <div class="holder" id="hold3"><h3>P3</h3></div>
-  </div>
+<h1>四人将棋（最終完成版）</h1>
+<div class="top">
+  <span id="turn"></span>
+  <button onclick="undo()">待った</button>
+  <button onclick="init()">初期化</button>
 </div>
 
-<div id="controls">
-  <button onclick="undo()">待った</button>
-  <span id="turn"></span>
+<div class="layout">
+  <div class="hand" id="hand3"></div>
+  <div class="hand" id="hand1"></div>
+
+  <div class="board" id="board"></div>
+
+  <div class="hand" id="hand0"></div>
+  <div class="hand" id="hand2"></div>
 </div>
 
 <script>
-/* ===== 基本設定 ===== */
-const SIZE = 15;
-const players = ["p1","p2","p3","p4"];
-let turn = 0;
-let history=[];
+const N=15,P=4;
+const boardEl=document.getElementById('board');
+const turnEl=document.getElementById('turn');
+const handsEl=[hand0,hand1,hand2,hand3];
 
-const board = document.getElementById("board");
-const turnSpan=document.getElementById("turn");
+let board,hands,alive,turn,sel=null,selHand=null,marks=[],history=[];
 
-/* ===== 盤生成 ===== */
-let cells=[];
-let pieces={}; // key "x,y"
+const back=['香','桂','銀','金','王','金','銀','桂','香'];
+const promote={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
+const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
 
-for(let y=0;y<SIZE;y++){
-  for(let x=0;x<SIZE;x++){
-    const c=document.createElement("div");
-    c.className="cell";
-    // 四隅3x3無効
-    if((x<3&&y<3)||(x>11&&y<3)||(x<3&&y>11)||(x>11&&y>11)){
-      c.classList.add("disabled");
+function inPlay(r,c){
+  if(r<3&&c<3) return false;
+  if(r<3&&c>=12) return false;
+  if(r>=12&&c<3) return false;
+  if(r>=12&&c>=12) return false;
+  return r>=0&&r<N&&c>=0&&c<N;
+}
+
+function dir(o){return[[1,0],[0,-1],[-1,0],[0,1]][o];}
+
+function enemyZone(o,r,c){
+  if(o===0) return r>=12;
+  if(o===2) return r<=2;
+  if(o===1) return c<=2;
+  if(o===3) return c>=12;
+}
+
+function init(){
+  board=[...Array(N)].map(()=>Array(N).fill(null));
+  hands=[[],[],[],[]];
+  alive=[true,true,true,true];
+  turn=0; sel=null; selHand=null; marks=[]; history=[];
+  place(); draw();
+}
+
+function place(){
+  const cols=[3,4,5,6,7,8,9,10,11];
+  const rows=[3,4,5,6,7,8,9,10,11];
+  for(let i=0;i<9;i++) board[0][cols[i]]={t:back[i],o:0};
+  board[1][4]={t:'飛',o:0}; board[1][10]={t:'角',o:0};
+  for(let i=0;i<9;i++) board[2][cols[i]]={t:'歩',o:0};
+
+  for(let i=0;i<9;i++) board[rows[i]][14]={t:back[i],o:1};
+  board[4][13]={t:'飛',o:1}; board[10][13]={t:'角',o:1};
+  for(let i=0;i<9;i++) board[rows[i]][12]={t:'歩',o:1};
+
+  for(let i=0;i<9;i++) board[14][cols[8-i]]={t:back[i],o:2};
+  board[13][10]={t:'飛',o:2}; board[13][4]={t:'角',o:2};
+  for(let i=0;i<9;i++) board[12][cols[8-i]]={t:'歩',o:2};
+
+  for(let i=0;i<9;i++) board[rows[8-i]][0]={t:back[i],o:3};
+  board[10][1]={t:'飛',o:3}; board[4][1]={t:'角',o:3};
+  for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
+}
+
+/* ===== 正規の駒動き ===== */
+function genMoves(p,r,c){
+  let res=[],[dr,dc]=dir(p.o);
+  const step=(a,b)=>{
+    let nr=r+a,nc=c+b;
+    if(inPlay(nr,nc)&&(!board[nr][nc]||board[nr][nc].o!==p.o))
+      res.push([nr,nc]);
+  };
+  const slide=(a,b)=>{
+    let nr=r+a,nc=c+b;
+    while(inPlay(nr,nc)){
+      if(board[nr][nc]){
+        if(board[nr][nc].o!==p.o) res.push([nr,nc]);
+        break;
+      }
+      res.push([nr,nc]);
+      nr+=a; nc+=b;
     }
-    c.dataset.x=x;
-    c.dataset.y=y;
-    c.onclick=()=>clickCell(x,y);
-    board.appendChild(c);
-    cells.push(c);
+  };
+
+  switch(p.t){
+    case '歩': step(dr,dc); break;
+    case '香': slide(dr,dc); break;
+    case '桂': step(dr*2+dc,dc*2-dr); break;
+    case '銀':
+      [[dr,dc],[dr+dc,dc-dr],[dr-dc,dc+dr],[-dr+dc,-dc-dr],[-dr-dc,-dc+dr]]
+        .forEach(d=>step(d[0],d[1]));
+      break;
+    case '金':
+    case 'と': case '杏': case '圭': case '全':
+      [[dr,dc],[dc,-dr],[-dc,dr],[-dr,-dc],[dr+dc,dc-dr],[dr-dc,dc+dr]]
+        .forEach(d=>step(d[0],d[1]));
+      break;
+    case '角': slide(1,1); slide(1,-1); slide(-1,1); slide(-1,-1); break;
+    case '馬':
+      slide(1,1); slide(1,-1); slide(-1,1); slide(-1,-1);
+      step(1,0); step(-1,0); step(0,1); step(0,-1);
+      break;
+    case '飛': slide(1,0); slide(-1,0); slide(0,1); slide(0,-1); break;
+    case '龍':
+      slide(1,0); slide(-1,0); slide(0,1); slide(0,-1);
+      step(1,1); step(1,-1); step(-1,1); step(-1,-1);
+      break;
+    case '王':
+      for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)if(a||b)step(a,b);
+  }
+  return res;
+}
+
+/* ===== クリック ===== */
+function clickCell(r,c){
+  if(!inPlay(r,c)) return;
+  if(sel&&sel.r===r&&sel.c===c){ sel=null; marks=[]; draw(); return; }
+
+  if(sel){
+    if(marks.some(m=>m[0]===r&&m[1]===c)){
+      history.push(JSON.stringify({board,hands,alive,turn}));
+      const p=board[sel.r][sel.c];
+      const cap=board[r][c];
+      board[r][c]=p; board[sel.r][sel.c]=null;
+      if(cap) hands[turn].push(unpromote[cap.t]||cap.t);
+      if(promote[p.t]&&enemyZone(p.o,r,c))
+        if(confirm('成りますか？')) p.t=promote[p.t];
+      nextTurn();
+      sel=null; marks=[];
+      draw();
+    }
+    return;
+  }
+  const p=board[r][c];
+  if(p&&p.o===turn){
+    sel={r,c};
+    marks=genMoves(p,r,c);
+    draw();
   }
 }
 
-/* ===== 駒定義 ===== */
-function makePiece(type,owner,promoted=false){
-  return {type,owner,promoted};
+function nextTurn(){
+  do{ turn=(turn+1)%4 }while(!alive[turn]);
 }
 
-/* ===== 初期配置（歩＋香車追加）===== */
-function place(x,y,p){ pieces[`${x},${y}`]=p; }
+function draw(){
+  boardEl.innerHTML='';
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const d=document.createElement('div');
+    if(!inPlay(r,c)){d.className='cell wall';boardEl.appendChild(d);continue;}
+    d.className='cell '+((r+c)%2?'dark':'');
+    if(sel&&sel.r===r&&sel.c===c)d.classList.add('sel');
+    if(marks.some(m=>m[0]===r&&m[1]===c))d.classList.add('move');
+    if(board[r][c]){
+      const s=document.createElement('span');
+      s.textContent=board[r][c].t;
+      s.className='p'+board[r][c].o+(alive[board[r][c].o]?'':' dead');
+      d.appendChild(s);
+    }
+    d.onclick=()=>clickCell(r,c);
+    boardEl.appendChild(d);
+  }
+  turnEl.textContent='手番：P'+(turn+1);
 
-for(let i=3;i<=11;i++){
-  place(i,1,makePiece("歩","p3"));
-  place(i,13,makePiece("歩","p1"));
-  place(1,i,makePiece("歩","p2"));
-  place(13,i,makePiece("歩","p4"));
-}
-place(7,14,makePiece("王","p1"));
-place(14,7,makePiece("王","p2"));
-place(7,0,makePiece("王","p3"));
-place(0,7,makePiece("王","p4"));
-
-place(7,12,makePiece("香","p1"));
-place(12,7,makePiece("香","p2"));
-place(7,2,makePiece("香","p3"));
-place(2,7,makePiece("香","p4"));
-
-/* ===== 向き ===== */
-const dir={
- p1:[0,-1],
- p2:[-1,0],
- p3:[0,1],
- p4:[1,0]
-};
-
-/* ===== 駒の動き（修正版）===== */
-function moves(piece,x,y){
- let res=[];
- const [dx,dy]=dir[piece.owner];
-
- function step(vx,vy){
-   const nx=x+vx, ny=y+vy;
-   if(nx<0||ny<0||nx>=SIZE||ny>=SIZE) return;
-   if(document.querySelector(`.cell[data-x="${nx}"][data-y="${ny}"]`).classList.contains("disabled")) return;
-   if(!pieces[`${nx},${ny}`]||pieces[`${nx},${ny}`].owner!==piece.owner)
-     res.push([nx,ny]);
- }
-
- function slide(vx,vy){
-   let nx=x+vx, ny=y+vy;
-   while(nx>=0&&ny>=0&&nx<SIZE&&ny<SIZE){
-     if(document.querySelector(`.cell[data-x="${nx}"][data-y="${ny}"]`).classList.contains("disabled")) break;
-     if(pieces[`${nx},${ny}`]){
-       if(pieces[`${nx},${ny}`].owner!==piece.owner) res.push([nx,ny]);
-       break;
-     }
-     res.push([nx,ny]);
-     nx+=vx; ny+=vy;
-   }
- }
-
- const t=piece.type;
- const g = piece.promoted || ["金"].includes(t);
-
- if(t==="歩"&&!piece.promoted){
-   step(dx,dy);
- }
- else if(t==="香"&&!piece.promoted){
-   slide(dx,dy);
- }
- else if(t==="桂"&&!piece.promoted){
-   step(dx*2+dy,dy*2-dx);
-   step(dx*2-dy,dy*2+dx);
- }
- else if(t==="銀"&&!piece.promoted){
-   step(dx,dy);
-   step(dx+dy,dy-dx);
-   step(dx-dy,dy+dx);
-   step(-dx+dy,-dy-dx);
-   step(-dx-dy,-dy+dx);
- }
- else if(g){
-   step(dx,dy);
-   step(dx+dy,dy-dx);
-   step(dx-dy,dy+dx);
-   step(dy,-dx);
-   step(-dy,dx);
-   step(-dx,-dy);
- }
- else if(t==="王"){
-   for(let vx=-1;vx<=1;vx++)
-    for(let vy=-1;vy<=1;vy++)
-     if(vx||vy) step(vx,vy);
- }
- return res;
-}
-
-/* ===== 描画 ===== */
-function render(){
- cells.forEach(c=>{
-   c.innerHTML="";
-   c.classList.remove("highlight","selected");
- });
- for(const k in pieces){
-   const [x,y]=k.split(",").map(Number);
-   const c=document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
-   const p=document.createElement("div");
-   p.className="piece "+pieces[k].owner;
-   p.textContent=(pieces[k].promoted?"成":"")+pieces[k].type;
-   c.appendChild(p);
- }
- turnSpan.textContent="手番："+players[turn];
-}
-render();
-
-/* ===== 操作 ===== */
-let selected=null;
-let legal=[];
-
-function clickCell(x,y){
- const key=`${x},${y}`;
- if(selected){
-   if(legal.some(m=>m[0]==x&&m[1]==y)){
-     history.push(JSON.stringify(pieces));
-     move(selected[0],selected[1],x,y);
-     selected=null; legal=[];
-     turn=(turn+1)%4;
-     render(); return;
-   }else{
-     selected=null; legal=[]; render(); return;
-   }
- }
- if(pieces[key]&&pieces[key].owner===players[turn]){
-   selected=[x,y];
-   legal=moves(pieces[key],x,y);
-   render();
-   document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`).classList.add("selected");
-   legal.forEach(m=>{
-     document.querySelector(`.cell[data-x="${m[0]}"][data-y="${m[1]}"]`).classList.add("highlight");
-   });
- }
-}
-
-function move(x1,y1,x2,y2){
- const p=pieces[`${x1},${y1}`];
- delete pieces[`${x1},${y1}`];
- if(pieces[`${x2},${y2}`]){ /* 駒取り（持ち駒省略簡略） */}
- pieces[`${x2},${y2}`]=p;
- // 成り判定（選択）
- if(canPromote(p,x2,y2)){
-   if(confirm("成りますか？")) p.promoted=true;
- }
-}
-
-function canPromote(p,x,y){
- if(p.promoted||["王","金"].includes(p.type))return false;
- const enemy = {
-  p1:"p3",p3:"p1",p2:"p4",p4:"p2"
- }[p.owner];
- if(enemy==="p3"&&y<=2)return true;
- if(enemy==="p1"&&y>=12)return true;
- if(enemy==="p2"&&x<=2)return true;
- if(enemy==="p4"&&x>=12)return true;
- return false;
+  handsEl.forEach((el,o)=>{
+    el.innerHTML='<h3>P'+(o+1)+' 持ち駒</h3><div class="list"></div>';
+    const list=el.querySelector('.list');
+    hands[o].forEach(pc=>{
+      const d=document.createElement('div');
+      d.className='pc'; d.textContent=pc;
+      list.appendChild(d);
+    });
+  });
 }
 
 function undo(){
- if(history.length){
-   pieces=JSON.parse(history.pop());
-   turn=(turn+3)%4;
-   render();
- }
+  if(!history.length) return;
+  const h=JSON.parse(history.pop());
+  board=h.board; hands=h.hands; alive=h.alive; turn=h.turn;
+  sel=null; marks=[]; draw();
 }
+
+init();
 </script>
 </body>
 </html>

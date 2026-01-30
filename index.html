@@ -1,217 +1,761 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<title>四人将棋 UI完全再現</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>四人将棋 — 画像レイアウト再現・動ける場所マーク付き</title>
 <style>
-body{
-  background:#d89a2c;
-  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
-  margin:0;padding:10px;
-}
-
-h1{margin:6px 0;font-size:18px}
-
-:root{
-  --cell:42px;
-  --line:#000;
-  --cellbg:#f4d9a6;
-}
-
-#container{
-  display:grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto 1fr auto;
-  gap:10px;
-  justify-items:center;
-  align-items:center;
-}
-
-/* ================= 盤 ================= */
-#board{
-  grid-column:2;
-  grid-row:2;
-  display:grid;
-  grid-template-columns:repeat(13,var(--cell));
-  grid-template-rows:repeat(13,var(--cell));
-  border:3px solid var(--line);
-  background:#c6862c;
-}
-
-.cell{
-  width:var(--cell);
-  height:var(--cell);
-  background:var(--cellbg);
-  border:1px solid var(--line);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  cursor:pointer;
-  user-select:none;
-}
-
-.cell.empty{background:#d89a2c;border:none}
-
-/* ================= 駒 ================= */
-.piece{
-  font-size:20px;
-  font-weight:bold;
-}
-
-.o0{transform:rotate(180deg)}
-.o1{transform:rotate(270deg)}
-.o2{transform:rotate(0deg)}
-.o3{transform:rotate(90deg)}
-
-.dead{opacity:.3}
-
-/* ================= 持ち駒 ================= */
-.hand{
-  background:#fff1c1;
-  border:2px solid #000;
-  padding:4px;
-  min-width:120px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:4px;
-  justify-content:center;
-}
-
-.hand span{
-  background:#fff;
-  border:1px solid #000;
-  padding:2px 4px;
-  cursor:pointer;
-}
-
-/* ================= 配置 ================= */
-#hand0{grid-column:2;grid-row:1}
-#hand1{grid-column:3;grid-row:2}
-#hand2{grid-column:2;grid-row:3}
-#hand3{grid-column:1;grid-row:2}
-
-#controls{
-  grid-column:1/4;
-  grid-row:4;
-  text-align:center;
-}
+  :root{
+    --cell:44px;
+    --gap:3px;
+    --board-bg:#d9932a;
+    --cell-bg:#f4d9a6;
+    --cell-dark:#e1b577;
+    --invalid:#d9932a;
+  }
+  body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,Arial,sans-serif;background:var(--board-bg);padding:12px;color:#222;}
+  h1{font-size:18px;margin:6px 0 8px;}
+  .container{display:flex;gap:12px;align-items:flex-start;}
+  .left{min-width:640px;}
+  .board-wrap{background:var(--board-bg);padding:8px;border-radius:8px;display:inline-block;}
+  .board{display:grid; grid-template-columns: repeat(13, var(--cell)); grid-template-rows: repeat(13, var(--cell)); gap: var(--gap); background:transparent; padding:6px; border-radius:6px;}
+  .cell{width:var(--cell);height:var(--cell); background:var(--cell-bg); display:flex; align-items:center; justify-content:center; font-size:18px; box-sizing:border-box; border:1px solid rgba(0,0,0,0.06); position:relative; user-select:none; cursor:pointer;}
+  .cell.dark{background:var(--cell-dark)}
+  .cell.invalid{background:transparent; border:0; cursor:default;}
+  .piece{font-size:18px; pointer-events:none; transform-origin:center; text-align:center; line-height:1;}
+  .p0{transform:rotate(180deg);} /* top player (owner 0) faces down */
+  .p1{transform:rotate(270deg);} /* right */
+  .p2{transform:rotate(0deg);}   /* bottom */
+  .p3{transform:rotate(90deg);}  /* left */
+  .sel{outline:3px solid #ffd766; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.06);}
+  .mark{position:absolute; width:16px; height:16px; border-radius:50%; background:rgba(20,120,20,0.9); right:6px; bottom:6px; pointer-events:none;}
+  .mark.capture{background:rgba(150,20,20,0.95);}
+  .ui{margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  button{padding:6px 10px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); background:#fff8e6; cursor:pointer;}
+  .info{font-size:13px; color:#222; margin-top:6px;}
+  .rightcol{width:340px;}
+  .hand-box{background:#fff3d4; padding:8px; border-radius:8px; margin-bottom:8px;}
+  .hand-title{font-weight:700; margin-bottom:6px;}
+  .hand-list{display:flex; flex-wrap:wrap; gap:6px;}
+  .hand-item{background:#fff; padding:6px 8px; border-radius:6px; cursor:pointer; border:1px solid rgba(0,0,0,0.08);}
+  .log{height:320px; overflow:auto; background:#fffaf0; padding:8px; border-radius:6px; border:1px solid rgba(0,0,0,0.05);}
+  .turn{font-weight:700; margin-bottom:6px;}
+  .dead-piece{opacity:.25;}
+  .small-note{font-size:12px;color:#333;margin-top:6px}
 </style>
 </head>
-
 <body>
-<h1>四人将棋（UI完全再現）</h1>
+  <h1>四人将棋（画像レイアウト再現・動ける場所マーク付き）</h1>
+  <div class="container">
+    <div class="left">
+      <div class="board-wrap">
+        <div id="board" class="board"></div>
+      </div>
+      <div class="ui">
+        <div class="turn" id="turnLabel">手番：プレイヤー1（上）</div>
+        <button id="undoBtn">待った（Undo）</button>
+        <button id="resetBtn">初期化</button>
+        <div class="small-note">駒をクリックすると「合法手」にマークが表示されるで。成りは確認ダイアログで選べるで。</div>
+      </div>
+    </div>
 
-<div id="container">
-  <div class="hand" id="hand0"></div>
-  <div class="hand" id="hand1"></div>
+    <div class="rightcol">
+      <div class="hand-box">
+        <div class="hand-title">プレイヤー1（上）持ち駒</div>
+        <div id="hand0" class="hand-list"></div>
+      </div>
+      <div class="hand-box">
+        <div class="hand-title">プレイヤー2（右）持ち駒</div>
+        <div id="hand1" class="hand-list"></div>
+      </div>
+      <div class="hand-box">
+        <div class="hand-title">プレイヤー3（下）持ち駒</div>
+        <div id="hand2" class="hand-list"></div>
+      </div>
+      <div class="hand-box">
+        <div class="hand-title">プレイヤー4（左）持ち駒</div>
+        <div id="hand3" class="hand-list"></div>
+      </div>
 
-  <div id="board"></div>
-
-  <div class="hand" id="hand3"></div>
-  <div class="hand" id="hand2"></div>
-
-  <div id="controls">
-    <button onclick="undo()">待った</button>
-    <button onclick="init()">初期化</button>
-    <span id="turn"></span>
+      <div class="log" id="log"></div>
+    </div>
   </div>
-</div>
 
 <script>
-/* ======= ロジック部分（前回と同一）======= */
-const N=13;
-let board,turn=0,sel=null,history=[];
-let alive=[true,true,true,true];
-let hands=[[],[],[],[]];
+/* --- 設計メモ（ざっくり）
+   - 盤: 13x13。ただし四隅の3x3ブロックは無効（画像と同じレイアウト）
+   - プレイヤー 0..3: 時計回り（0=上,1=右,2=下,3=左）
+   - 駒の動きは通常将棋準拠（成り、飛角の成り拡張、桂の跳躍など）
+   - 駒選択時に「その駒の合法手（王手を放置しない等）」を計算してマーク表示
+   - 成りは成れる場合に確認ダイアログで選択
+   - 王手判定・詰み判定・脱落・持ち駒の打ち（簡易二歩判定・打ち歩詰めチェック）を実装
+   - undo（待った）は履歴を深く保存して復元
+*/
 
-const back=['香','桂','銀','金','王','金','銀','桂','香'];
-const promote={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
-const unp={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
+/* 定数 */
+const N = 13;
+const boardEl = document.getElementById('board');
+const turnLabel = document.getElementById('turnLabel');
+const logEl = document.getElementById('log');
+const undoBtn = document.getElementById('undoBtn');
+const resetBtn = document.getElementById('resetBtn');
+const handEls = [document.getElementById('hand0'),document.getElementById('hand1'),document.getElementById('hand2'),document.getElementById('hand3')];
 
-function empty(){board=[...Array(N)].map(()=>Array(N).fill(null));}
+let board = []; // board[r][c] = {t:'歩', owner:0, promoted:false}
+let hands = [[],[],[],[]]; // arrays of piece type strings (unpromoted names)
+let alive = [true,true,true,true];
+let turn = 0; // 0..3
+let selected = null; // {r,c}
+let selectedHand = null; // {player, idx}
+let history = []; // for undo (deep copy snapshots)
 
-function init(){
-  empty();
-  hands=[[],[],[],[]];
-  alive=[true,true,true,true];
-  history=[];
-  turn=0; sel=null;
-  place(); draw();
+/* 駒データ */
+const backRow = ['香','桂','銀','金','王','金','銀','桂','香'];
+const promoteMap = {歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
+const unpromoteMap = {と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
+
+/* 有効マス判定（四隅3x3を無効化） */
+function isValidCell(r,c){
+  // corners ranges: 0..2 and 10..12
+  if((r<=2 && c<=2) || (r<=2 && c>=10) || (r>=10 && c<=2) || (r>=10 && c>=10)) return false;
+  return r>=0 && r<N && c>=0 && c<N;
 }
 
-function place(){
-  let c=[2,3,4,5,6,7,8,9,10];
-  for(let i=0;i<9;i++) board[0][c[i]]={t:back[i],o:0};
-  board[1][3]={t:'飛',o:0}; board[1][9]={t:'角',o:0};
-  for(let i=0;i<9;i++) board[2][c[i]]={t:'歩',o:0};
-
-  let r=[2,3,4,5,6,7,8,9,10];
-  for(let i=0;i<9;i++) board[r[i]][12]={t:back[i],o:1};
-  board[3][11]={t:'飛',o:1}; board[9][11]={t:'角',o:1};
-  for(let i=0;i<9;i++) board[r[i]][10]={t:'歩',o:1};
-
-  for(let i=0;i<9;i++) board[12][c[8-i]]={t:back[i],o:2};
-  board[11][9]={t:'飛',o:2}; board[11][3]={t:'角',o:2};
-  for(let i=0;i<9;i++) board[10][c[8-i]]={t:'歩',o:2};
-
-  for(let i=0;i<9;i++) board[r[8-i]][0]={t:back[i],o:3};
-  board[9][1]={t:'飛',o:3}; board[3][1]={t:'角',o:3};
-  for(let i=0;i<9;i++) board[r[8-i]][2]={t:'歩',o:3};
-}
-
-/* ==== 描画 ==== */
-function draw(){
-  const b=document.getElementById("board");
-  b.innerHTML="";
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    let d=document.createElement("div");
-    let valid=(r>=2&&r<=10)||(c>=2&&c<=10);
-    d.className="cell"+(valid?"":" empty");
-    if(valid)d.onclick=()=>click(r,c);
-    let p=board[r][c];
-    if(p){
-      let s=document.createElement("span");
-      s.textContent=p.t;
-      s.className="piece o"+p.o+(alive[p.o]?"":" dead");
-      d.appendChild(s);
-    }
-    b.appendChild(d);
+/* 回転ユーティリティ
+   基準は「プレイヤー0の前方向が (1,0)（下方向）」。player k は基準を時計回りに k 回回したもの。
+   rotateCW(dr,dc): (dr,dc) -> (dc, -dr)
+*/
+function rotate(dr,dc,k){
+  k = ((k%4)+4)%4;
+  for(let i=0;i<k;i++){
+    [dr,dc] = [dc, -dr];
   }
-  for(let i=0;i<4;i++){
-    let h=document.getElementById("hand"+i);
-    h.innerHTML="";
-    hands[i].forEach(x=>{
-      let s=document.createElement("span");
-      s.textContent=x; h.appendChild(s);
+  return [dr,dc];
+}
+
+/* 駒の動きを基底（player0向け）で定義して、プレイヤーに回転適用して生成 */
+function pseudoMovesAt(r,c, ignoreKingSafety=false){
+  const p = board[r][c];
+  if(!p) return [];
+  const owner = p.owner;
+  let T = p.t;
+  // treat promoted piece types by mapping
+  const isProm = p.promoted;
+  if(isProm){
+    T = p.t; // if we store promoted piece with t as promoted symbol, we'll handle separately
+  }
+  // We'll support promoted pieces by checking p.promoted flag and using promoted moves accordingly
+  const base = []; // array of {dr,dc,slide:boolean}
+  // helper to add vector(s)
+  function add(dr,dc,slide=false){ base.push({dr,dc,slide}); }
+
+  // determine type code (unpromoted or promoted)
+  const type = p.promoted ? (p.t) : p.t;
+
+  // For simplicity, treat promoted pieces by rules:
+  // promoted pawn, promoted lance, promoted knight, promoted silver => move as Gold
+  // promoted bishop (馬): bishop sliding + king orthogonals
+  // promoted rook (龍): rook sliding + king diagonals
+  // We'll set base accordingly depending on type and promoted flag
+  if(p.promoted && (p.t === 'と' || p.t === '杏' || p.t === '圭' || p.t === '全')){
+    // gold-like moves
+    add(1,0); add(1,1); add(1,-1); add(0,1); add(0,-1); add(-1,0);
+  } else if(p.t === '歩' && !p.promoted){
+    add(1,0,false);
+  } else if(p.t === '香' && !p.promoted){
+    add(1,0,true);
+  } else if(p.t === '桂' && !p.promoted){
+    add(2,1,false); add(2,-1,false);
+  } else if((p.t === '銀' && !p.promoted)){
+    add(1,0,false); add(1,1,false); add(1,-1,false); add(-1,1,false); add(-1,-1,false);
+  } else if(p.t === '金' || (p.promoted && (p.t==='と' || p.t==='杏' || p.t==='圭' || p.t==='全'))){
+    add(1,0); add(1,1); add(1,-1); add(0,1); add(0,-1); add(-1,0);
+  } else if(p.t === '角' && !p.promoted){
+    add(1,1,true); add(1,-1,true); add(-1,1,true); add(-1,-1,true);
+  } else if(p.t === '飛' && !p.promoted){
+    add(1,0,true); add(-1,0,true); add(0,1,true); add(0,-1,true);
+  } else if(p.t === '王'){
+    for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) if(dr!==0||dc!==0) add(dr,dc,false);
+  } else if(p.t === '馬' || (p.t === '角' && p.promoted)){ // 馬 (bishop promoted)
+    add(1,1,true); add(1,-1,true); add(-1,1,true); add(-1,-1,true);
+    add(1,0,false); add(-1,0,false); add(0,1,false); add(0,-1,false);
+  } else if(p.t === '龍' || (p.t === '飛' && p.promoted)){ // 龍 (rook promoted)
+    add(1,0,true); add(-1,0,true); add(0,1,true); add(0,-1,true);
+    add(1,1,false); add(1,-1,false); add(-1,1,false); add(-1,-1,false);
+  } else {
+    // fallback: treat as king
+    for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) if(dr||dc) add(dr,dc,false);
+  }
+
+  // now rotate each base vector according to owner (player)
+  const moves = [];
+  for(const b of base){
+    const [rdr, rdc] = rotate(b.dr, b.dc, owner);
+    if(b.slide){
+      // step until blocked
+      let nr = r + rdr, nc = c + rdc;
+      while(isValidCell(nr,nc)){
+        const occ = board[nr][nc];
+        if(occ){
+          if(occ.owner !== owner) moves.push({r:nr,c:nc,capture:true});
+          break;
+        } else {
+          moves.push({r:nr,c:nc,capture:false});
+        }
+        nr += rdr; nc += rdc;
+      }
+    } else {
+      const nr = r + rdr, nc = c + rdc;
+      if(isValidCell(nr,nc)){
+        const occ = board[nr][nc];
+        if(!occ) moves.push({r:nr,c:nc,capture:false});
+        else if(occ.owner !== owner) moves.push({r:nr,c:nc,capture:true});
+      }
+    }
+  }
+
+  // For knights, ensure they respect off-board (already handled by isValidCell)
+  // Now filter out moves that would leave own king in check (real legal filtering)
+  const legal = [];
+  for(const m of moves){
+    // simulate move
+    const snap = deepCopyBoard();
+    const from = {r,c};
+    const to = {r:m.r,c:m.c};
+    const moved = board[r][c];
+    const captured = board[to.r][to.c] ? {...board[to.r][to.c]} : null;
+    // perform
+    board[to.r][to.c] = {...moved};
+    board[from.r][from.c] = null;
+    // check if own king is in check or if moving into invalid (e.g., moving king off)
+    const inCheck = isInCheck(owner);
+    // revert from snapshot
+    restoreBoardFromSnapshot(snap);
+    if(!inCheck) legal.push(m);
+  }
+  return legal;
+}
+
+/* 深いコピー・復元ヘルパー */
+function deepCopyBoard(){
+  return {
+    board: JSON.parse(JSON.stringify(board)),
+    hands: JSON.parse(JSON.stringify(hands)),
+    alive: JSON.parse(JSON.stringify(alive)),
+    turn
+  };
+}
+function restoreBoardFromSnapshot(snap){
+  board = JSON.parse(JSON.stringify(snap.board));
+  hands = JSON.parse(JSON.stringify(snap.hands));
+  alive = JSON.parse(JSON.stringify(snap.alive));
+  turn = snap.turn;
+}
+
+/* isInCheck: 指定プレイヤーの王が攻撃されているか */
+function isInCheck(player){
+  // find king pos
+  let kpos = null;
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(board[r][c] && board[r][c].owner === player && board[r][c].t === '王'){
+      kpos = {r,c};
+    }
+  }
+  if(!kpos) return false; // 王が居ない（脱落） -> not in check
+  // check all opponent pieces that are alive
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const p = board[r][c];
+    if(p && p.owner !== player && alive[p.owner]){
+      // generate pseudo (without king-safety) moves for this piece and see if any hits kpos
+      const moves = pseudoMovesAt(r,c,true);
+      if(moves.some(m => m.r === kpos.r && m.c === kpos.c)) return true;
+    }
+  }
+  return false;
+}
+
+/* checkmate判定：プレイヤーの任意手で王を守れるか否か（完全探索：駒の合法手全部試す） */
+function isCheckmated(player){
+  // if no king => eliminated = considered checkmated
+  let hasKing = false;
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c] && board[r][c].owner===player && board[r][c].t==='王') hasKing=true;
+  if(!hasKing) return true;
+  // for each own piece, try each legal move and see if any results in not-in-check
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const p = board[r][c];
+    if(p && p.owner===player){
+      const moves = pseudoMovesAt(r,c);
+      for(const m of moves){
+        const snap = deepCopyBoard();
+        const cap = board[m.r][m.c] ? {...board[m.r][m.c]} : null;
+        board[m.r][m.c] = {...board[r][c]};
+        board[r][c] = null;
+        // if move results in promotion prompt? For check test assume both variants: if promotion possible, try promoted and unpromoted
+        let ok=false;
+        if(!isInCheck(player)) ok=true;
+        // revert
+        restoreBoardFromSnapshot(snap);
+        if(ok) return false;
+      }
+    }
+  }
+  // also consider drops from hand: if any drop prevents checkmate, then not checkmate
+  for(let i=0;i<hands[player].length;i++){
+    const t = hands[player][i];
+    for(let rr=0;rr<N;rr++) for(let cc=0;cc<N;cc++){
+      if(!isValidCell(rr,cc)) continue;
+      if(board[rr][cc]) continue;
+      // check nifu for pawn
+      if(t==='歩'){
+        if(hasPawnInFile(player, cc)) continue;
+      }
+      const snap = deepCopyBoard();
+      board[rr][cc] = {t:t, owner:player, promoted:false};
+      hands[player].splice(i,1);
+      let ok=false;
+      if(!isInCheck(player)) ok=true;
+      restoreBoardFromSnapshot(snap);
+      if(ok) return false;
+    }
+  }
+  return true;
+}
+
+/* hasPawnInFile: 同じ筋に自分の歩があるか（未成含む） */
+function hasPawnInFile(player, col){
+  for(let r=0;r<N;r++){
+    if(board[r][col] && board[r][col].owner === player && board[r][col].t === '歩' && !board[r][col].promoted) return true;
+  }
+  return false;
+}
+
+/* 初期配置 */
+function initBoard(){
+  // empty board
+  board = Array.from({length:N}, ()=>Array.from({length:N}, ()=>null));
+  // central files cols 2..10 and rows 2..10
+  const files = [2,3,4,5,6,7,8,9,10];
+  const ranks = [2,3,4,5,6,7,8,9,10];
+  // top player (0)
+  for(let i=0;i<9;i++) board[0][files[i]] = {t:backRow[i], owner:0, promoted:false};
+  board[1][files[1]] = {t:'飛', owner:0, promoted:false};
+  board[1][files[7]] = {t:'角', owner:0, promoted:false};
+  for(let i=0;i<9;i++) board[2][files[i]] = {t:'歩', owner:0, promoted:false};
+  // right player (1)
+  for(let i=0;i<9;i++) board[ranks[i]][12] = {t:backRow[i], owner:1, promoted:false};
+  board[ranks[1]][11] = {t:'飛', owner:1, promoted:false};
+  board[ranks[7]][11] = {t:'角', owner:1, promoted:false};
+  for(let i=0;i<9;i++) board[ranks[i]][10] = {t:'歩', owner:1, promoted:false};
+  // bottom player (2)
+  for(let i=0;i<9;i++) board[12][files[8-i]] = {t:backRow[i], owner:2, promoted:false};
+  board[11][files[7]] = {t:'飛', owner:2, promoted:false};
+  board[11][files[1]] = {t:'角', owner:2, promoted:false};
+  for(let i=0;i<9;i++) board[10][files[8-i]] = {t:'歩', owner:2, promoted:false};
+  // left player (3)
+  for(let i=0;i<9;i++) board[ranks[8-i]][0] = {t:backRow[i], owner:3, promoted:false};
+  board[ranks[7]][1] = {t:'飛', owner:3, promoted:false};
+  board[ranks[1]][1] = {t:'角', owner:3, promoted:false};
+  for(let i=0;i<9;i++) board[ranks[8-i]][2] = {t:'歩', owner:3, promoted:false};
+
+  hands = [[],[],[],[]];
+  alive = [true,true,true,true];
+  turn = 0;
+  selected = null; selectedHand = null;
+  history = [];
+  pushHistory(); // initial snapshot
+  renderAll();
+  log('初期配置でセットしたで。');
+}
+
+/* 履歴（undo）を保存 */
+function pushHistory(){
+  history.push(deepCopyBoard());
+  if(history.length>200) history.shift();
+}
+
+/* 盤描画 */
+function renderAll(){
+  boardEl.innerHTML = '';
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell' + (((r+c)%2===0)?' dark':'');
+      if(!isValidCell(r,c)) cell.classList.add('invalid');
+      cell.dataset.r = r; cell.dataset.c = c;
+      if(isValidCell(r,c)) cell.addEventListener('click', ()=>onCellClick(r,c));
+      const p = board[r][c];
+      if(p){
+        const sp = document.createElement('div');
+        sp.className = 'piece p' + p.owner + (alive[p.owner]?'':' dead-piece');
+        sp.textContent = p.t;
+        cell.appendChild(sp);
+      }
+      if(selected && selected.r==r && selected.c==c) cell.classList.add('sel');
+      boardEl.appendChild(cell);
+    }
+  }
+  renderHands();
+  updateTurnLabel();
+}
+
+/* 手番ラベル更新 */
+function updateTurnLabel(){
+  const names = ['プレイヤー1（上）','プレイヤー2（右）','プレイヤー3（下）','プレイヤー4（左）'];
+  turnLabel.textContent = '手番：' + names[turn] + (alive[turn] ? '' : '（脱落）');
+}
+
+/* 持ち駒表示 */
+function renderHands(){
+  for(let pl=0;pl<4;pl++){
+    const cont = handEls[pl];
+    cont.innerHTML = '';
+    hands[pl].forEach((t, idx)=>{
+      const d = document.createElement('div');
+      d.className = 'hand-item';
+      d.textContent = t;
+      d.dataset.player = pl; d.dataset.idx = idx;
+      d.addEventListener('click', ()=>onHandClick(pl, idx));
+      cont.appendChild(d);
     });
   }
-  document.getElementById("turn").textContent="手番：プレイヤー"+(turn+1);
 }
 
-function click(r,c){
-  let p=board[r][c];
-  if(sel){
-    let s=sel;
-    history.push(JSON.stringify({board,hands,alive,turn}));
-    board[r][c]=board[s.r][s.c];
-    board[s.r][s.c]=null;
-    sel=null;
-    turn=(turn+1)%4;
-    draw(); return;
+/* ログ */
+function log(msg){
+  const t = new Date().toLocaleTimeString();
+  logEl.innerHTML = `<div>[${t}] ${msg}</div>` + logEl.innerHTML;
+}
+
+/* クリック処理 */
+function onCellClick(r,c){
+  if(!alive[turn]){ log('あなたは脱落してるで。'); return; }
+  if(!isValidCell(r,c)){ selected=null; selectedHand=null; clearMarks(); renderAll(); return; }
+
+  // 1) ドロップ状態なら打つ処理
+  if(selectedHand){
+    const pl = selectedHand.player;
+    if(pl !== turn){ log('自分の持ち駒を使ってや。'); selectedHand=null; clearMarks(); renderAll(); return; }
+    const type = hands[pl][selectedHand.idx];
+    if(board[r][c]){ log('空きマスに打ってや。'); return; }
+    // 二歩チェック（歩）
+    if(type === '歩'){
+      if(hasPawnInFile(pl,c)){ log('その筋には既に歩があるで（ニフ）。'); return; }
+      // 打ち歩詰めチェック（簡易）: 打った直後に相手の王が詰む（動けない・取れない）なら禁止
+      // We'll block drops that immediately checkmate any king (simple conservative rule)
+      const snap = deepCopyBoard();
+      board[r][c] = {t:'歩', owner:pl, promoted:false};
+      hands[pl].splice(selectedHand.idx,1);
+      let immediateMate = false;
+      for(let opp=0; opp<4; opp++){
+        if(!alive[opp] || opp===pl) continue;
+        if(isInCheck(opp) && isCheckmated(opp)) { immediateMate = true; break; }
+      }
+      restoreBoardFromSnapshot(snap);
+      if(immediateMate){ log('打ち歩詰めに該当する可能性があるから打てへんで。'); return; }
+    }
+    // do drop
+    const movedType = type;
+    hands[pl].splice(selectedHand.idx,1);
+    board[r][c] = {t:movedType, owner:pl, promoted:false};
+    pushHistory();
+    log(`プレイヤー${pl+1} が ${r},${c} に ${movedType} を打ったで。`);
+    selectedHand = null; selected=null; clearMarks();
+    // after drop, advance to next alive player
+    advanceTurn();
+    renderAll();
+    // check if any player gets captured (mate) as result
+    checkAllEliminations();
+    return;
   }
-  if(p&&p.o==turn){sel={r,c};}
+
+  // 2) 選択済み駒があり、そのマスが合法手なら移動
+  if(selected){
+    // compute legal moves from selected
+    const legal = getLegalMoves(selected.r, selected.c);
+    const match = legal.find(m => m.r===r && m.c===c);
+    if(match){
+      // perform move (with promotion prompt if applicable)
+      const moving = board[selected.r][selected.c];
+      const captured = board[r][c] ? {...board[r][c]} : null;
+      // check promotion possibility: if piece is promotable (歩香桂銀角飛) and either from or to in promotion zone
+      const canPromote = isPromotable(moving, selected.r, r, selected.c, c);
+      let doPromote = false;
+      if(canPromote){
+        // ask player
+        doPromote = confirm('この手で成りますか？（OK=成る, キャンセル=成らない）');
+      }
+      // perform move
+      board[r][c] = {...moving};
+      if(doPromote) {
+        board[r][c].promoted = true;
+        board[r][c].t = promoteMap[moving.t] || moving.t;
+      }
+      board[selected.r][selected.c] = null;
+      if(captured){
+        // capture: add to current player's hands unpromoted type
+        const capturedType = unpromoteMap[captured.t] ? unpromoteMap[captured.t] : (captured.promoted ? unpromoteMap[captured.t] || captured.t : captured.t);
+        hands[turn].push(capturedType);
+        log(`プレイヤー${turn+1} が プレイヤー${captured.owner+1} の ${captured.t} を取ったで。`);
+        // if captured was king -> opponent eliminated
+        if(captured.t === '王'){
+          alive[captured.owner] = false;
+          log(`プレイヤー${captured.owner+1} は王を取られて脱落や！`);
+          // remove all their pieces from board
+          for(let rr=0; rr<N; rr++) for(let cc=0; cc<N; cc++) if(board[rr][cc] && board[rr][cc].owner === captured.owner) board[rr][cc] = null;
+        }
+      } else {
+        log(`プレイヤー${turn+1} が ${selected.r},${selected.c} から ${r},${c} へ移動したで。`);
+      }
+      pushHistory();
+      selected = null; clearMarks();
+      advanceTurn();
+      renderAll();
+      checkAllEliminations();
+      return;
+    } else {
+      // if clicked another of own pieces, change selection
+      if(board[r][c] && board[r][c].owner === turn){
+        selected = {r,c}; clearMarks(); showMarksFor(selected.r, selected.c);
+        renderAll();
+        return;
+      } else {
+        selected = null; clearMarks(); renderAll();
+        log('そこには行かれへんで。');
+        return;
+      }
+    }
+  }
+
+  // 3) 何も選択してないなら、自分の駒を選択（他人の駒は選べない）
+  if(board[r][c] && board[r][c].owner === turn){
+    selected = {r,c};
+    clearMarks();
+    showMarksFor(r,c);
+    renderAll();
+  } else {
+    log('自分の駒を選んでや。持ち駒を打つ場合は持ち駒をクリックしてから空きマスを押してや。');
+  }
 }
 
+/* 駒クリック時にマークを表示する */
+function clearMarks(){
+  // remove all .mark elements
+  document.querySelectorAll('.mark').forEach(el=>el.remove());
+}
+function showMarksFor(r,c){
+  clearMarks();
+  const p = board[r][c];
+  if(!p || p.owner !== turn) return;
+  const legal = getLegalMoves(r,c);
+  legal.forEach(m=>{
+    const index = m.r * N + m.c;
+    const cellDiv = boardEl.children[index];
+    const mark = document.createElement('div');
+    mark.className = 'mark' + (m.capture ? ' capture' : '');
+    cellDiv.appendChild(mark);
+  });
+}
+
+/* 持ち駒クリック */
+function onHandClick(player, idx){
+  if(player !== turn){ log('自分の持ち駒を使ってや。'); return; }
+  selectedHand = {player, idx};
+  selected = null;
+  clearMarks();
+  // show potential drop squares (legal drops)
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(!isValidCell(r,c)) continue;
+    if(board[r][c]) continue;
+    const t = hands[player][idx];
+    // two rules: 二歩禁止（同筋に歩がある）
+    if(t==='歩' && hasPawnInFile(player,c)) continue;
+    // also cannot drop pawn on last rank of that player (where pawn would have no forward moves)
+    if(t==='歩'){
+      // compute forward vector for player and ensure drop is not on last rank
+      const [fdr,fdc] = rotate(1,0,player);
+      const lastRow = (fdr === 1) ? N-1 : (fdr === -1 ? 0 : null);
+      const lastCol = (fdc === 1) ? N-1 : (fdc === -1 ? 0 : null);
+      if((lastRow!==null && r===lastRow) || (lastCol!==null && c===lastCol)) continue;
+    }
+    // For basic legality, simulate drop and ensure not immediate self-check
+    const snap = deepCopyBoard();
+    board[r][c] = {t: hands[player][idx], owner:player, promoted:false};
+    hands[player].splice(idx,1);
+    const illegal = isInCheck(player);
+    restoreBoardFromSnapshot(snap);
+    if(illegal) continue;
+    // show mark
+    const index = r*N + c;
+    const cellDiv = boardEl.children[index];
+    const mark = document.createElement('div');
+    mark.className = 'mark';
+    cellDiv.appendChild(mark);
+  }
+  log('持ち駒を選んだで。置きたいマスをクリックしてや。');
+}
+
+/* 合法手候補を返す（王手放置を除外） */
+function getLegalMoves(r,c){
+  const p = board[r][c]; if(!p) return [];
+  const pseudo = pseudoMovesAt(r,c); // pseudo already filters out king-safety by simulation inside
+  // further filter for pawn/knight reaching last ranks (illegal if would have no legal moves?) We'll allow moves but promotion can be offered.
+  return pseudo;
+}
+
+/* 成り可否判定（from->toで成れるか） */
+function isPromotable(piece, fr, tr, fc, tc){
+  if(!piece) return false;
+  if(!['歩','香','桂','銀','角','飛'].includes(piece.t)) return false;
+  // promotion zones: for player 0: rows 10..12; player2: rows 0..2; player1: cols 0..2; player3: cols 10..12
+  const owner = piece.owner;
+  const inZoneFrom = inPromotionZone(owner, fr, fc);
+  const inZoneTo = inPromotionZone(owner, tr, tc);
+  return inZoneFrom || inZoneTo;
+}
+function inPromotionZone(owner, r, c){
+  if(owner===0) return r>=10;
+  if(owner===2) return r<=2;
+  if(owner===1) return c<=2;
+  if(owner===3) return c>=10;
+  return false;
+}
+
+/* ターン進める（脱落をスキップ） */
+function advanceTurn(){
+  for(let i=1;i<=4;i++){
+    const nxt = (turn + i) % 4;
+    if(alive[nxt]){ turn = nxt; break; }
+  }
+  updateTurnLabel();
+}
+
+/* 二歩チェックヘルパー */
+function hasPawnInFile(player, col){
+  for(let r=0;r<N;r++){
+    const p = board[r][col];
+    if(p && p.owner===player && p.t==='歩' && !p.promoted) return true;
+  }
+  return false;
+}
+
+/* 全員の脱落判定・詰みチェック（手番進行後に呼ぶ） */
+function checkAllEliminations(){
+  // check each alive player whether in checkmate
+  for(let pl=0; pl<4; pl++){
+    if(!alive[pl]) continue;
+    if(isInCheck(pl) && isCheckmated(pl)){
+      alive[pl] = false;
+      log(`プレイヤー${pl+1} は詰まされたで。脱落や！`);
+      // remove their pieces from board
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(board[r][c] && board[r][c].owner===pl) board[r][c] = null;
+      // if only one player remains alive -> game over
+      const remain = alive.filter(x=>x).length;
+      if(remain <= 1){
+        const winner = alive.findIndex(x=>x);
+        log(`ゲーム終了！ プレイヤー${winner+1} の勝ちやで！`);
+      }
+    }
+  }
+  renderAll();
+}
+
+/* undo（待った） */
 function undo(){
-  if(!history.length)return;
-  let h=JSON.parse(history.pop());
-  board=h.board;hands=h.hands;alive=h.alive;turn=h.turn;
-  draw();
+  if(history.length <= 1){ log('戻す手はもうないで。'); return; }
+  // pop current state
+  history.pop();
+  const prev = history[history.length-1];
+  restoreBoardFromSnapshot(prev);
+  selected = null; selectedHand = null;
+  clearMarks();
+  renderAll();
+  log('一手戻したで（待った）。');
 }
 
-init();
+/* 初期化ボタン */
+undoBtn.addEventListener('click', undo);
+resetBtn.addEventListener('click', ()=>{ if(confirm('盤を初期配置に戻すで。よろしいか？')) { initBoard(); } });
+
+/* initialize and render */
+function renderEmptyBoardSkeleton(){
+  boardEl.innerHTML = '';
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const div = document.createElement('div');
+      div.className = 'cell' + (((r+c)%2===0)?' dark':'');
+      if(!isValidCell(r,c)) div.classList.add('invalid');
+      boardEl.appendChild(div);
+    }
+  }
+}
+
+function renderAll(){ renderEmptyBoardSkeleton(); 
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(!isValidCell(r,c)) continue;
+    const i = r*N + c;
+    const cell = boardEl.children[i];
+    cell.innerHTML = '';
+    const p = board[r][c];
+    if(p){
+      const sp = document.createElement('div');
+      sp.className = 'piece p' + p.owner + (alive[p.owner] ? '' : ' dead-piece');
+      sp.textContent = p.t;
+      cell.appendChild(sp);
+    }
+    if(selected && selected.r==r && selected.c==c) cell.classList.add('sel'); else cell.classList.remove('sel');
+  }
+  // redraw hands
+  renderHands();
+  updateTurnLabel();
+}
+
+/* 初期化処理 */
+function initBoard(){
+  // create empty
+  board = Array.from({length:N}, ()=>Array.from({length:N}, ()=>null));
+  // placement similar to earlier
+  const files = [2,3,4,5,6,7,8,9,10];
+  const ranks = [2,3,4,5,6,7,8,9,10];
+
+  // player0 (top)
+  for(let i=0;i<9;i++) board[0][files[i]] = {t:backRow[i], owner:0, promoted:false};
+  board[1][files[1]] = {t:'飛', owner:0, promoted:false};
+  board[1][files[7]] = {t:'角', owner:0, promoted:false};
+  for(let i=0;i<9;i++) board[2][files[i]] = {t:'歩', owner:0, promoted:false};
+  // player1 (right)
+  for(let i=0;i<9;i++) board[ranks[i]][12] = {t:backRow[i], owner:1, promoted:false};
+  board[ranks[1]][11] = {t:'飛', owner:1, promoted:false};
+  board[ranks[7]][11] = {t:'角', owner:1, promoted:false};
+  for(let i=0;i<9;i++) board[ranks[i]][10] = {t:'歩', owner:1, promoted:false};
+  // player2 (bottom)
+  for(let i=0;i<9;i++) board[12][files[8-i]] = {t:backRow[i], owner:2, promoted:false};
+  board[11][files[7]] = {t:'飛', owner:2, promoted:false};
+  board[11][files[1]] = {t:'角', owner:2, promoted:false};
+  for(let i=0;i<9;i++) board[10][files[8-i]] = {t:'歩', owner:2, promoted:false};
+  // player3 (left)
+  for(let i=0;i<9;i++) board[ranks[8-i]][0] = {t:backRow[i], owner:3, promoted:false};
+  board[ranks[7]][1] = {t:'飛', owner:3, promoted:false};
+  board[ranks[1]][1] = {t:'角', owner:3, promoted:false};
+  for(let i=0;i<9;i++) board[ranks[8-i]][2] = {t:'歩', owner:3, promoted:false};
+
+  hands = [[],[],[],[]];
+  alive = [true,true,true,true];
+  turn = 0;
+  selected = null;
+  selectedHand = null;
+  history = [];
+  pushHistory();
+  renderAll();
+  log('初期配置に戻したで。');
+}
+
+/* 起動 */
+initBoard();
+
+/* ユーティリティ: DOMインデックスから (r,c) を計算するのを使いたい場合は index = r*N+c だで */
+
+/* 補助: 盤のdeepコピー restore用関数は既に定義済み above */
+
 </script>
 </body>
 </html>

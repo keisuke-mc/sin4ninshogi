@@ -2,28 +2,27 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>四人将棋 15×15 完全版</title>
+<title>四人将棋 15×15 完成版</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
   --cell:40px;
-  --gap:2px;
   --wood:#f4d9a6;
   --wood2:#e2b36d;
   --bg:#d9932a;
   --frame:#c6862c;
-  --mark:#8fd3ff;
   --sel:#ff0;
+  --move:#8fd3ff;
 }
 body{margin:0;padding:10px;background:var(--bg);font-family:sans-serif}
-h1{font-size:18px;margin:4px 0}
+h1{margin:6px 0;font-size:18px}
 
-.top{margin-bottom:6px}
-button{padding:6px 10px;border-radius:6px;border:1px solid #999;background:#fff7e0}
+.top{margin-bottom:8px}
+button{margin-left:6px;padding:4px 8px}
 
 .layout{
   display:grid;
-  grid-template-columns:200px auto 200px;
+  grid-template-columns:180px auto 180px;
   grid-template-rows:auto auto;
   gap:10px;
 }
@@ -34,10 +33,9 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #999;background:#fff7
   display:grid;
   grid-template-columns:repeat(15,var(--cell));
   grid-template-rows:repeat(15,var(--cell));
-  gap:var(--gap);
+  gap:2px;
   background:var(--frame);
   padding:6px;
-  border-radius:8px;
 }
 
 .cell{
@@ -47,38 +45,38 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #999;background:#fff7
   justify-content:center;
   font-size:18px;
   cursor:pointer;
-  user-select:none;
 }
 .dark{background:var(--wood2)}
 .wall{background:var(--bg);pointer-events:none}
 .sel{outline:3px solid var(--sel)}
-.move{background:var(--mark)!important}
+.move{background:var(--move)!important}
 
 .p0{transform:rotate(180deg)}
 .p1{transform:rotate(270deg)}
 .p2{transform:rotate(0deg)}
 .p3{transform:rotate(90deg)}
+.dead{opacity:.35}
 
 .hand{
   background:#fff3d4;
   border-radius:6px;
   padding:6px;
 }
-.hand h3{margin:0 0 6px;font-size:13px;text-align:center}
+.hand h3{margin:0 0 4px;font-size:13px;text-align:center}
 .list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
 .pc{
   background:#fff;
-  border:1px solid #888;
+  border:1px solid #999;
+  padding:3px 6px;
   border-radius:4px;
-  padding:4px 6px;
   cursor:pointer;
 }
+.selHand{outline:3px solid var(--sel)}
 </style>
 </head>
 <body>
 
-<h1>四人将棋（15×15 完全版）</h1>
-
+<h1>四人将棋（完成版）</h1>
 <div class="top">
   <span id="turn"></span>
   <button onclick="undo()">待った</button>
@@ -86,34 +84,29 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #999;background:#fff7
 </div>
 
 <div class="layout">
-  <div class="hand" id="hand3"></div>
-  <div class="hand" id="hand1"></div>
-
-  <div class="board" id="board"></div>
-
   <div class="hand" id="hand0"></div>
+  <div class="hand" id="hand1"></div>
+  <div class="board" id="board"></div>
+  <div class="hand" id="hand3"></div>
   <div class="hand" id="hand2"></div>
 </div>
 
 <script>
-/* ===== 基本 ===== */
-const N=15;
+const N=15,P=4;
 const boardEl=document.getElementById('board');
 const turnEl=document.getElementById('turn');
-const handsEl=[
-  document.getElementById('hand0'),
-  document.getElementById('hand1'),
-  document.getElementById('hand2'),
-  document.getElementById('hand3')
-];
+const handsEl=[0,1,2,3].map(i=>document.getElementById('hand'+i));
 
-let board,hands,alive,turn,sel=null,selHand=null,marks=[],history=[];
+let board,hands,alive,turn;
+let sel=null, selHand=null, marks=[];
+let history=[];
 
+/* ===== 駒定義 ===== */
 const back=['香','桂','銀','金','王','金','銀','桂','香'];
 const promote={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
 const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
 
-/* ===== 有効マス ===== */
+/* ===== 盤使用可 ===== */
 function inPlay(r,c){
   if(r<3&&c<3) return false;
   if(r<3&&c>=12) return false;
@@ -123,9 +116,7 @@ function inPlay(r,c){
 }
 
 /* ===== 向き ===== */
-function dir(o){
-  return [[1,0],[0,-1],[-1,0],[0,1]][o];
-}
+function forward(o){ return [[1,0],[0,-1],[-1,0],[0,1]][o]; }
 
 /* ===== 向かい陣地 ===== */
 function enemyZone(o,r,c){
@@ -141,18 +132,18 @@ function init(){
   hands=[[],[],[],[]];
   alive=[true,true,true,true];
   turn=0; sel=null; selHand=null; marks=[]; history=[];
-  placeInitial();
-  draw();
+  placeInitial(); draw();
 }
 
 /* ===== 初期配置 ===== */
 function placeInitial(){
   const cols=[3,4,5,6,7,8,9,10,11];
+  const rows=[3,4,5,6,7,8,9,10,11];
+
   for(let i=0;i<9;i++) board[0][cols[i]]={t:back[i],o:0};
   board[1][4]={t:'飛',o:0}; board[1][10]={t:'角',o:0};
   for(let i=0;i<9;i++) board[2][cols[i]]={t:'歩',o:0};
 
-  const rows=[3,4,5,6,7,8,9,10,11];
   for(let i=0;i<9;i++) board[rows[i]][14]={t:back[i],o:1};
   board[4][13]={t:'飛',o:1}; board[10][13]={t:'角',o:1};
   for(let i=0;i<9;i++) board[rows[i]][12]={t:'歩',o:1};
@@ -166,126 +157,70 @@ function placeInitial(){
   for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
 }
 
-/* ===== 駒の動き（正式将棋） ===== */
+/* ===== 駒の動き（修正版） ===== */
 function genMoves(p,r,c){
-  let res=[],d=dir(p.o);
-  const add=(dr,dc,rep=false)=>{
-    let nr=r+dr,nc=c+dc;
-    while(inPlay(nr,nc)){
-      if(board[nr][nc]&&board[nr][nc].o===p.o) break;
-      res.push([nr,nc]);
-      if(board[nr][nc]||!rep) break;
-      nr+=dr; nc+=dc;
-    }
-  };
-  const T=p.t;
-  if(T==='歩') add(d[0],d[1]);
-  else if(T==='香') add(d[0],d[1],true);
-  else if(T==='桂') add(d[0]*2+d[1],d[1]*2-d[0]);
-  else if(T==='銀'){
-    add(d[0],d[1]);
-    add(d[1],-d[0]);
-    add(-d[1],d[0]);
-    add(-d[0]+d[1],-d[1]-d[0]);
-    add(-d[0]-d[1],-d[1]+d[0]);
-  }
-  else if(T==='金'||['と','杏','圭','全'].includes(T)){
-    add(d[0],d[1]);
-    add(d[1],-d[0]);
-    add(-d[1],d[0]);
-    add(d[0]-d[1],d[1]+d[0]);
-    add(-d[0]+d[1],-d[1]-d[0]);
-  }
-  else if(T==='角'||T==='馬'){
-    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>add(v[0],v[1],true));
-    if(T==='馬') [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>add(v[0],v[1]));
-  }
-  else if(T==='飛'||T==='龍'){
-    [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>add(v[0],v[1],true));
-    if(T==='龍') [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>add(v[0],v[1]));
-  }
-  else if(T==='王'){
-    for(let dr=-1;dr<=1;dr++)
-      for(let dc=-1;dc<=1;dc++)
-        if(dr||dc) add(dr,dc);
+  let res=[], [dr,dc]=forward(p.o);
+  const add=(r2,c2)=>{ if(inPlay(r2,c2)&&(!board[r2][c2]||board[r2][c2].o!==p.o)) res.push([r2,c2]); };
+  const ray=(rr,cc)=>{ while(inPlay(rr,cc)){ if(board[rr][cc]&&board[rr][cc].o===p.o)break; res.push([rr,cc]); if(board[rr][cc])break; rr+=dr; cc+=dc; }};
+
+  switch(p.t){
+    case '歩': add(r+dr,c+dc); break;
+    case '香': ray(r+dr,c+dc); break;
+    case '桂': add(r+dr*2,c+dc*2+dr*dc?0:0); add(r+dr*2,c-dc*2); break;
+    case '銀':
+      [[dr,dc],[dr,dc-1],[dr,dc+1],[-dr,dc-1],[-dr,dc+1]].forEach(v=>add(r+v[0],c+v[1]));
+      break;
+    case '金': case 'と': case '杏': case '圭': case '全':
+      [[dr,dc],[dr,0],[0,dc],[0,-dc],[-dr,0]].forEach(v=>add(r+v[0],c+v[1]));
+      break;
+    case '角': case '馬':
+      [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>{
+        let rr=r+v[0],cc=c+v[1];
+        while(inPlay(rr,cc)){ if(board[rr][cc]&&board[rr][cc].o===p.o)break; res.push([rr,cc]); if(board[rr][cc])break; rr+=v[0];cc+=v[1]; }
+      });
+      if(p.t==='馬') [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>add(r+v[0],c+v[1]));
+      break;
+    case '飛': case '龍':
+      [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>{
+        let rr=r+v[0],cc=c+v[1];
+        while(inPlay(rr,cc)){ if(board[rr][cc]&&board[rr][cc].o===p.o)break; res.push([rr,cc]); if(board[rr][cc])break; rr+=v[0];cc+=v[1]; }
+      });
+      if(p.t==='龍') [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>add(r+v[0],c+v[1]));
+      break;
+    case '王':
+      for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)if(a||b)add(r+a,c+b);
   }
   return res;
 }
 
-/* ===== 二歩 ===== */
-function nifu(o,c){
-  for(let r=0;r<N;r++){
-    let p=board[r][c];
-    if(p&&p.o===o&&p.t==='歩') return true;
-  }
-  return false;
-}
-
-/* ===== クリック処理 ===== */
+/* ===== クリック処理（トグル対応） ===== */
 function clickCell(r,c){
-  if(!inPlay(r,c)) return;
+  if(!inPlay(r,c))return;
 
-  if(sel&&sel.r===r&&sel.c===c){
-    sel=null; marks=[]; draw(); return;
-  }
+  if(sel&&sel.r===r&&sel.c===c){ sel=null; marks=[]; draw(); return; }
+  if(selHand){ selHand=null; marks=[]; draw(); return; }
 
-  if(selHand){
-    if(marks.some(m=>m[0]===r&&m[1]===c)){
-      history.push(JSON.stringify({board,hands,alive,turn}));
-      board[r][c]={t:selHand.t,o:turn};
-      hands[turn].splice(selHand.i,1);
-      selHand=null; marks=[];
-      nextTurn(); draw();
-    }
-    return;
-  }
-
+  const p=board[r][c];
   if(sel){
     if(marks.some(m=>m[0]===r&&m[1]===c)){
       history.push(JSON.stringify({board,hands,alive,turn}));
-      const p=board[sel.r][sel.c];
+      const pc=board[sel.r][sel.c];
       const cap=board[r][c];
-      board[r][c]=p; board[sel.r][sel.c]=null;
+      board[r][c]=pc; board[sel.r][sel.c]=null;
       if(cap) hands[turn].push(unpromote[cap.t]||cap.t);
-
-      if(promote[p.t]&&enemyZone(p.o,r,c)){
-        if(confirm('成りますか？')) p.t=promote[p.t];
-      }
-
-      sel=null; marks=[];
-      nextTurn(); draw();
+      if(promote[pc.t]&&enemyZone(pc.o,r,c)&&confirm('成りますか？')) pc.t=promote[pc.t];
+      nextTurn();
     }
-    return;
+    sel=null; marks=[]; draw(); return;
   }
-
-  const p=board[r][c];
   if(p&&p.o===turn&&alive[p.o]){
-    sel={r,c};
-    marks=genMoves(p,r,c);
-    draw();
+    sel={r,c}; marks=genMoves(p,r,c); draw();
   }
-}
-
-/* ===== 持ち駒 ===== */
-function clickHand(o,i){
-  if(o!==turn) return;
-  if(selHand&&selHand.i===i){
-    selHand=null; marks=[]; draw(); return;
-  }
-  sel=null;
-  selHand={o,i,t:hands[o][i]};
-  marks=[];
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    if(!inPlay(r,c)||board[r][c]) continue;
-    if(selHand.t==='歩'&&nifu(o,c)) continue;
-    marks.push([r,c]);
-  }
-  draw();
 }
 
 /* ===== 手番 ===== */
 function nextTurn(){
-  do{turn=(turn+1)%4}while(!alive[turn]);
+  do{ turn=(turn+1)%P }while(!alive[turn]);
 }
 
 /* ===== 描画 ===== */
@@ -295,26 +230,26 @@ function draw(){
     const d=document.createElement('div');
     if(!inPlay(r,c)){d.className='cell wall';boardEl.appendChild(d);continue;}
     d.className='cell '+((r+c)%2?'dark':'');
-    if(sel&&sel.r===r&&sel.c===c) d.classList.add('sel');
-    if(marks.some(m=>m[0]===r&&m[1]===c)) d.classList.add('move');
+    if(sel&&sel.r===r&&sel.c===c)d.classList.add('sel');
+    if(marks.some(m=>m[0]===r&&m[1]===c))d.classList.add('move');
     if(board[r][c]){
       const s=document.createElement('span');
       s.textContent=board[r][c].t;
-      s.className='p'+board[r][c].o;
+      s.className='p'+board[r][c].o+(alive[board[r][c].o]?'':' dead');
       d.appendChild(s);
     }
     d.onclick=()=>clickCell(r,c);
     boardEl.appendChild(d);
   }
   turnEl.textContent='手番：P'+(turn+1);
-
   handsEl.forEach((el,o)=>{
     el.innerHTML='<h3>P'+(o+1)+' 持ち駒</h3><div class="list"></div>';
     const list=el.querySelector('.list');
     hands[o].forEach((pc,i)=>{
       const d=document.createElement('div');
-      d.className='pc'; d.textContent=pc;
-      d.onclick=()=>clickHand(o,i);
+      d.className='pc'+(selHand&&selHand.o===o&&selHand.i===i?' selHand':'');
+      d.textContent=pc;
+      d.onclick=()=>{ selHand&&selHand.o===o&&selHand.i===i?(selHand=null):(selHand={o,i}); marks=[]; draw(); };
       list.appendChild(d);
     });
   });
@@ -322,11 +257,10 @@ function draw(){
 
 /* ===== Undo ===== */
 function undo(){
-  if(!history.length) return;
+  if(!history.length)return;
   const h=JSON.parse(history.pop());
   board=h.board; hands=h.hands; alive=h.alive; turn=h.turn;
-  sel=null; selHand=null; marks=[];
-  draw();
+  sel=null; selHand=null; marks=[]; draw();
 }
 
 init();

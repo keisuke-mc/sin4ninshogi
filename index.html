@@ -187,40 +187,41 @@ function genMoves(p,r,c){
     }
   };
   switch(p.t){
-    case '歩': add(d[0],d[1]); break;
-    case '香': add(d[0],d[1],true); break;
-    case '銀':
-      [[d[0],d[1]],[d[1],-d[0]],[-d[1],d[0]],[d[0]-d[1],d[1]+d[0]],[-d[0]-d[1],-d[1]+d[0]]]
-      .forEach(v=>add(v[0],v[1]));
-      break;
-    case '桂': {
-      let d0=d[0], d1=d[1];
-    // 前に2、左右に1
-    add(d0*2 + d1, d1*2 - d0);
-    add(d0*2 - d1, d1*2 + d0);
+  
+  case '歩':
+    add(F[0],F[1]);
     break;
-  }
-
-    case '金': case 'と': case '杏': case '圭': case '全': {
-    let d0=d[0], d1=d[1];
+  
+  case '香':
+    add(F[0],F[1],true);
+    break;
+  
+  case '桂':
+    add(F[0]*2 + L[0], F[1]*2 + L[1]);
+    add(F[0]*2 + R[0], F[1]*2 + R[1]);
+    break;
+  
+  case '銀':
     [
-      [ d0, d1 ],                 // 前
-      [ d1, -d0 ],                // 左
-      [ -d1, d0 ],                // 右
-      [ d0 + d1, d1 - d0 ],       // 前左
-      [ d0 - d1, d1 + d0 ],       // 前右
-      [ -d0, -d1 ]                // 後ろ
+      F,
+      L,
+      R,
+      [F[0]+L[0],F[1]+L[1]],
+      [F[0]+R[0],F[1]+R[1]]
     ].forEach(v=>add(v[0],v[1]));
     break;
-  }
-    case '角': case '馬':
-      [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>add(v[0],v[1],true));
-      if(p.t==='馬') [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>add(v[0],v[1]));
-      break;
-    case '飛': case '龍':
-      [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>add(v[0],v[1],true));
-      if(p.t==='龍') [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>add(v[0],v[1]));
-      break;
+  
+  case '金':
+  case 'と': case '杏': case '圭': case '全':
+    [
+      F,
+      L,
+      R,
+      B,
+      [F[0]+L[0],F[1]+L[1]],
+      [F[0]+R[0],F[1]+R[1]]
+    ].forEach(v=>add(v[0],v[1]));
+    break;
     case '王':
       for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)
         if(dr||dc) add(dr,dc);

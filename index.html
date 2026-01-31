@@ -278,7 +278,7 @@ function clickCell(r,c){
   let p=board[r][c];
   if(p&&p.o===turn){
     sel={r,c};
-    marks=genMoves(p,r,c);
+    marks=legalMoves(p,r,c);
     draw();
   }
 }
@@ -333,6 +333,17 @@ function undo(){
   draw();
 }
 
+function legalMoves(p,r,c){
+  let res=[];
+  for(let [nr,nc] of genMoves(p,r,c)){
+    let save=board[nr][nc];
+    board[nr][nc]=p; board[r][c]=null;
+    let ok=!inCheck(p.o);
+    board[r][c]=p; board[nr][nc]=save;
+    if(ok) res.push([nr,nc]);
+  }
+  return res;
+}
 init();
 </script>
 </body>

@@ -156,69 +156,77 @@ function placeInitial(){
 /* ================= 動き生成 ================= */
 function genMoves(p,r,c){
   let res=[], d=dir(p.o);
+
   const add=(dr,dc,rep=false)=>{
     let nr=r+dr,nc=c+dc;
     while(inPlay(nr,nc)){
-      if(board[nr][nc]&&board[nr][nc].o===p.o) break;
+      if(board[nr][nc] && board[nr][nc].o===p.o) break;
       res.push([nr,nc]);
-      if(board[nr][nc]||!rep) break;
+      if(board[nr][nc] || !rep) break;
       nr+=dr; nc+=dc;
     }
   };
-  switch(p.t){
-    case '歩': add(d[0],d[1]); break;
-    case '香': add(d[0],d[1],true); break;
-    case '桂': add(d[0]*2+d[1],d[1]*2-d[0]); break;
-    case '銀':
-  [
-    [ d[0], d[1] ],                 // 前
-    [ d[0]+d[1], d[1]-d[0] ],       // 前右
-    [ d[0]-d[1], d[1]+d[0] ],       // 前左
-    [ -d[1], d[0] ],                // 後ろ右
-    [ d[1], -d[0] ]                 // 後ろ左
-  ].forEach(x=>add(x[0],x[1]));
-  break;
 
-  case '金': case 'と': case '杏': case '圭': case '全':
-  [
-    [ d[0], d[1] ],                 // 前
-    [ d[0]+d[1], d[1]-d[0] ],       // 前右
-    [ d[0]-d[1], d[1]+d[0] ],       // 前左
-    [ d[1], -d[0] ],                // 右
-    [ -d[1], d[0] ],                // 左
-    [ -d[0], -d[1] ]                // 後ろ
-  ].forEach(x=>add(x[0],x[1]));
-  break;
+  switch(p.t){
+
+    case '歩':
+      add(d[0], d[1]);
+      break;
+
+    case '香':
+      add(d[0], d[1], true);
+      break;
+
+    case '桂':
+      // 前に2、左右に1
+      add(d[0]*2 + d[1], d[1]*2 - d[0]);
+      add(d[0]*2 - d[1], d[1]*2 + d[0]);
+      break;
+
+    case '銀':
+      [
+        [ d[0], d[1] ],                 // 前
+        [ d[0]+d[1], d[1]-d[0] ],       // 前右
+        [ d[0]-d[1], d[1]+d[0] ],       // 前左
+        [ -d[1], d[0] ],                // 後右斜め
+        [ d[1], -d[0] ]                 // 後左斜め
+      ].forEach(x=>add(x[0],x[1]));
+      break;
+
+    case '金': case 'と': case '杏': case '圭': case '全':
+      [
+        [ d[0], d[1] ],                 // 前
+        [ d[1], -d[0] ],                // 右
+        [ -d[1], d[0] ],                // 左
+        [ -d[0], -d[1] ],               // 後ろ
+        [ d[0]+d[1], d[1]-d[0] ],       // 前右
+        [ d[0]-d[1], d[1]+d[0] ]        // 前左
+      ].forEach(x=>add(x[0],x[1]));
+      break;
+
     case '角': case '馬':
       [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(x=>add(x[0],x[1],true));
-      if(p.t==='馬') [[1,0],[-1,0],[0,1],[0,-1]].forEach(x=>add(x[0],x[1]));
+      if(p.t==='馬'){
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(x=>add(x[0],x[1]));
+      }
       break;
+
     case '飛': case '龍':
       [[1,0],[-1,0],[0,1],[0,-1]].forEach(x=>add(x[0],x[1],true));
-      if(p.t==='龍') [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(x=>add(x[0],x[1]));
+      if(p.t==='龍'){
+        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(x=>add(x[0],x[1]));
+      }
       break;
+
     case '王':
-      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++) if(dr||dc) add(dr,dc);
+      for(let dr=-1;dr<=1;dr++){
+        for(let dc=-1;dc<=1;dc++){
+          if(dr||dc) add(dr,dc);
+        }
+      }
+      break;
   }
   return res;
-}
-
-/* ================= ニ歩（超厳密） ================= */
-function nifu(o,r,c){
-  let d=dir(o);
-  let br=r, bc=c;
-  while(inPlay(br,bc)){
-    let p=board[br][bc];
-    if(p&&p.o===o&&p.t==='歩') return true;
-    br-=d[0]; bc-=d[1];
-  }
-  br=r+d[0]; bc=c+d[1];
-  while(inPlay(br,bc)){
-    let p=board[br][bc];
-    if(p&&p.o===o&&p.t==='歩') return true;
-    br+=d[0]; bc+=d[1];
-  }
-  return false;
 }
 
 /* ================= クリック ================= */

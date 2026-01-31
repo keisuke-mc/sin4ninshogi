@@ -80,7 +80,6 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
   border:1px solid #999;
   border-radius:4px;
   padding:4px 6px;
-  cursor:pointer;
 }
 
 .win{
@@ -119,7 +118,6 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 </div>
 
 <script>
-/* ================= 基本 ================= */
 const N=15;
 const boardEl=document.getElementById('board');
 const wrap=document.getElementById('wrap');
@@ -134,7 +132,6 @@ let history=[];
 const promote={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
 const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
 
-/* ================= 盤判定 ================= */
 function inPlay(r,c){
   if(r<3&&c<3) return false;
   if(r<3&&c>=12) return false;
@@ -144,7 +141,7 @@ function inPlay(r,c){
 }
 function dir(o){return[[1,0],[0,-1],[-1,0],[0,1]][o];}
 
-/* ================= 初期配置 ================= */
+/* ===== 初期化 ===== */
 function init(){
   board=[...Array(N)].map(()=>Array(N).fill(null));
   hands=[[],[],[],[]];
@@ -156,11 +153,12 @@ function init(){
 function placeInitial(){
   const back=['香','桂','銀','金','王','金','銀','桂','香'];
   const cols=[3,4,5,6,7,8,9,10,11];
+  const rows=[3,4,5,6,7,8,9,10,11];
+
   for(let i=0;i<9;i++) board[0][cols[i]]={t:back[i],o:0};
   board[1][4]={t:'飛',o:0}; board[1][10]={t:'角',o:0};
   for(let i=0;i<9;i++) board[2][cols[i]]={t:'歩',o:0};
 
-  const rows=[3,4,5,6,7,8,9,10,11];
   for(let i=0;i<9;i++) board[rows[i]][14]={t:back[i],o:1};
   board[4][13]={t:'飛',o:1}; board[10][13]={t:'角',o:1};
   for(let i=0;i<9;i++) board[rows[i]][12]={t:'歩',o:1};
@@ -174,9 +172,10 @@ function placeInitial(){
   for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
 }
 
-/* ================= 動き生成（修正版） ================= */
+/* ===== 駒の動き ===== */
 function genMoves(p,r,c){
-  let res=[], d=dir(p.o);
+  let res=[];
+  const F=dir(p.o), B=[-F[0],-F[1]], L=[-F[1],F[0]], R=[F[1],-F[0]];
   const add=(dr,dc,rep=false)=>{
     let nr=r+dr,nc=c+dc;
     while(inPlay(nr,nc)){
@@ -187,41 +186,28 @@ function genMoves(p,r,c){
     }
   };
   switch(p.t){
-  
-  case '歩':
-    add(F[0],F[1]);
-    break;
-  
-  case '香':
-    add(F[0],F[1],true);
-    break;
-  
-  case '桂':
-    add(F[0]*2 + L[0], F[1]*2 + L[1]);
-    add(F[0]*2 + R[0], F[1]*2 + R[1]);
-    break;
-  
-  case '銀':
-    [
-      F,
-      L,
-      R,
-      [F[0]+L[0],F[1]+L[1]],
-      [F[0]+R[0],F[1]+R[1]]
-    ].forEach(v=>add(v[0],v[1]));
-    break;
-  
-  case '金':
-  case 'と': case '杏': case '圭': case '全':
-    [
-      F,
-      L,
-      R,
-      B,
-      [F[0]+L[0],F[1]+L[1]],
-      [F[0]+R[0],F[1]+R[1]]
-    ].forEach(v=>add(v[0],v[1]));
-    break;
+    case '歩': add(F[0],F[1]); break;
+    case '香': add(F[0],F[1],true); break;
+    case '桂':
+      add(F[0]*2+L[0],F[1]*2+L[1]);
+      add(F[0]*2+R[0],F[1]*2+R[1]);
+      break;
+    case '銀':
+      [F,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],L,R]
+      .forEach(v=>add(v[0],v[1]));
+      break;
+    case '金': case 'と': case '杏': case '圭': case '全':
+      [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
+      .forEach(v=>add(v[0],v[1]));
+      break;
+    case '角': case '馬':
+      [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>add(v[0],v[1],true));
+      if(p.t==='馬') [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>add(v[0],v[1]));
+      break;
+    case '飛': case '龍':
+      [[1,0],[-1,0],[0,1],[0,-1]].forEach(v=>add(v[0],v[1],true));
+      if(p.t==='龍') [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(v=>add(v[0],v[1]));
+      break;
     case '王':
       for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)
         if(dr||dc) add(dr,dc);
@@ -229,7 +215,7 @@ function genMoves(p,r,c){
   return res;
 }
 
-/* ================= 王手・詰み ================= */
+/* ===== 王手・合法手 ===== */
 function kingPos(o){
   for(let r=0;r<N;r++)for(let c=0;c<N;c++){
     let p=board[r][c];
@@ -248,31 +234,19 @@ function inCheck(o){
   }
   return false;
 }
-function hasEscape(o){
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    let p=board[r][c];
-    if(p&&p.o===o){
-      for(let [nr,nc] of genMoves(p,r,c)){
-        let save=board[nr][nc];
-        board[nr][nc]=p; board[r][c]=null;
-        let ok=!inCheck(o);
-        board[r][c]=p; board[nr][nc]=save;
-        if(ok) return true;
-      }
-    }
+function legalMoves(p,r,c){
+  let res=[];
+  for(let [nr,nc] of genMoves(p,r,c)){
+    let save=board[nr][nc];
+    board[nr][nc]=p; board[r][c]=null;
+    let ok=!inCheck(p.o);
+    board[r][c]=p; board[nr][nc]=save;
+    if(ok) res.push([nr,nc]);
   }
-  return false;
-}
-function checkMate(o){
-  return inCheck(o)&&!hasEscape(o);
+  return res;
 }
 
-/* ================= 手番 ================= */
-function nextTurn(){
-  do{turn=(turn+1)%4}while(!alive[turn]);
-}
-
-/* ================= クリック ================= */
+/* ===== 操作 ===== */
 function clickCell(r,c){
   if(!inPlay(r,c)) return;
   if(sel){
@@ -280,13 +254,9 @@ function clickCell(r,c){
       history.push(JSON.stringify({board,hands,alive,turn}));
       let p=board[sel.r][sel.c];
       let cap=board[r][c];
-      if(cap && cap.t==='王' && checkMate(cap.o)) return;
+      if(cap&&cap.t!=='王') hands[turn].push(unpromote[cap.t]||cap.t);
       board[r][c]=p; board[sel.r][sel.c]=null;
-      if(cap && cap.t!=='王') hands[turn].push(unpromote[cap.t]||cap.t);
       sel=null; marks=[];
-      if(checkMate(turn)){
-        alive[turn]=false;
-      }
       nextTurn(); draw();
     }else{sel=null;marks=[];draw();}
     return;
@@ -298,12 +268,14 @@ function clickCell(r,c){
     draw();
   }
 }
+function nextTurn(){
+  do{turn=(turn+1)%4}while(!alive[turn]);
+}
 
-/* ================= 描画 ================= */
+/* ===== 描画 ===== */
 function draw(){
   boardEl.innerHTML='';
   wrap.className='boardWrap turn'+turn;
-  let aliveCnt=alive.filter(x=>x).length;
 
   for(let r=0;r<N;r++)for(let c=0;c<N;c++){
     let d=document.createElement('div');
@@ -324,11 +296,6 @@ function draw(){
   turnEl.textContent='手番：P'+(turn+1);
   statusEl.textContent=inCheck(turn)?' 王手！':'';
 
-  if(aliveCnt===1){
-    let w=alive.indexOf(true);
-    statusEl.innerHTML='<span class="win">🎉 P'+(w+1)+' の勝利！ 🎉</span>';
-  }
-
   handsEl.forEach((el,o)=>{
     el.innerHTML='<h3>P'+(o+1)+' 持ち駒</h3><div class="list"></div>';
     let list=el.querySelector('.list');
@@ -340,7 +307,7 @@ function draw(){
   });
 }
 
-/* ================= Undo ================= */
+/* ===== Undo ===== */
 function undo(){
   if(!history.length) return;
   let h=JSON.parse(history.pop());
@@ -349,17 +316,6 @@ function undo(){
   draw();
 }
 
-function legalMoves(p,r,c){
-  let res=[];
-  for(let [nr,nc] of genMoves(p,r,c)){
-    let save=board[nr][nc];
-    board[nr][nc]=p; board[r][c]=null;
-    let ok=!inCheck(p.o);
-    board[r][c]=p; board[nr][nc]=save;
-    if(ok) res.push([nr,nc]);
-  }
-  return res;
-}
 init();
 </script>
 </body>

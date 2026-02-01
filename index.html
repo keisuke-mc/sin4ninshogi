@@ -165,6 +165,11 @@ function genMoves(p,r,c){
   let L = [F[1], -F[0]];
   let R = [-F[1], F[0]];
 
+  let FL = [F[0]+L[0], F[1]+L[1]];
+  let FR = [F[0]+R[0], F[1]+R[1]];
+  let BL = [B[0]+L[0], B[1]+L[1]];
+  let BR = [B[0]+R[0], B[1]+R[1]];
+
   const add=(dr,dc,rep=false)=>{
     let nr=r+dr,nc=c+dc;
     while(inPlay(nr,nc)){
@@ -178,18 +183,37 @@ function genMoves(p,r,c){
   switch(p.t){
     case '歩': add(F[0],F[1]); break;
     case '香': add(F[0],F[1],true); break;
+
     case '桂':
       add(F[0]*2+L[0],F[1]*2+L[1]);
       add(F[0]*2+R[0],F[1]*2+R[1]);
       break;
+
     case '銀':
-      [F,L,R,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
-        .forEach(v=>add(v[0],v[1]));
+      [F,L,R,FL,FR].forEach(v=>add(v[0],v[1]));
       break;
+
     case '金':
     case 'と': case '杏': case '圭': case '全':
-      [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
-        .forEach(v=>add(v[0],v[1]));
+      [F,L,R,B,FL,FR].forEach(v=>add(v[0],v[1]));
+      break;
+
+    case '飛':
+      [F,B,L,R].forEach(v=>add(v[0],v[1],true));
+      break;
+
+    case '角':
+      [FL,FR,BL,BR].forEach(v=>add(v[0],v[1],true));
+      break;
+
+    case '龍':
+      [F,B,L,R].forEach(v=>add(v[0],v[1],true));
+      [FL,FR,BL,BR].forEach(v=>add(v[0],v[1]));
+      break;
+
+    case '馬':
+      [FL,FR,BL,BR].forEach(v=>add(v[0],v[1],true));
+      [F,B,L,R].forEach(v=>add(v[0],v[1]));
       break;
   }
   return res;

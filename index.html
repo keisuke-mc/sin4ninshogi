@@ -159,7 +159,12 @@ function placeInitial(){
 
 /* 動き生成 */
 function genMoves(p,r,c){
-  let res=[], d=dir(p.o);
+  let res=[];
+  let F = dir(p.o);
+  let B = [-F[0], -F[1]];
+  let L = [F[1], -F[0]];
+  let R = [-F[1], F[0]];
+
   const add=(dr,dc,rep=false)=>{
     let nr=r+dr,nc=c+dc;
     while(inPlay(nr,nc)){
@@ -169,45 +174,25 @@ function genMoves(p,r,c){
       nr+=dr; nc+=dc;
     }
   };
+
   switch(p.t){
-  
-  case '歩':
-    add(F[0],F[1]);
-    break;
-  
-  case '香':
-    add(F[0],F[1],true);
-    break;
-  
-  case '桂':
-    add(F[0]*2 + L[0], F[1]*2 + L[1]);
-    add(F[0]*2 + R[0], F[1]*2 + R[1]);
-    break;
-  
-  case '銀':
-    [
-      F,
-      L,
-      R,
-      [F[0]+L[0],F[1]+L[1]],
-      [F[0]+R[0],F[1]+R[1]]
-    ].forEach(v=>add(v[0],v[1]));
-    break;
-  
-  case '金':
-  case 'と': case '杏': case '圭': case '全':
-    [
-      F,
-      L,
-      R,
-      B,
-      [F[0]+L[0],F[1]+L[1]],
-      [F[0]+R[0],F[1]+R[1]]
-    ].forEach(v=>add(v[0],v[1]));
-    break;
-   }
-    return res;
+    case '歩': add(F[0],F[1]); break;
+    case '香': add(F[0],F[1],true); break;
+    case '桂':
+      add(F[0]*2+L[0],F[1]*2+L[1]);
+      add(F[0]*2+R[0],F[1]*2+R[1]);
+      break;
+    case '銀':
+      [F,L,R,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
+        .forEach(v=>add(v[0],v[1]));
+      break;
+    case '金':
+    case 'と': case '杏': case '圭': case '全':
+      [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
+        .forEach(v=>add(v[0],v[1]));
+      break;
   }
+  return res;
 }
 
 /* クリック */

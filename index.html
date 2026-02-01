@@ -90,20 +90,14 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 const N=15;
 const boardEl=document.getElementById('board');
 const turnEl=document.getElementById('turn');
-const handsEl=[
-  document.getElementById('hand0'),
-  document.getElementById('hand1'),
-  document.getElementById('hand2'),
-  document.getElementById('hand3')
-];
+const handsEl=[hand0,hand1,hand2,hand3];
 
 let board,hands,alive,turn;
 let sel=null, selHand=null, marks=[];
 let history=[];
-let gameOver=false;
 
 const back=['香','桂','銀','金','王','金','銀','桂','香'];
-const promoteMap={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
+const promote={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
 const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
 
 function inPlay(r,c){
@@ -115,7 +109,7 @@ function inPlay(r,c){
 }
 function dir(o){return[[1,0],[0,-1],[-1,0],[0,1]][o];}
 
-function saveHistory(){
+function save(){
   history.push(JSON.stringify({board,hands,alive,turn}));
 }
 
@@ -123,7 +117,7 @@ function undo(){
   if(!history.length) return;
   let s=JSON.parse(history.pop());
   board=s.board; hands=s.hands; alive=s.alive; turn=s.turn;
-  sel=null; selHand=null; marks=[]; gameOver=false;
+  sel=null; selHand=null; marks=[];
   draw();
 }
 
@@ -131,7 +125,7 @@ function init(){
   board=[...Array(N)].map(()=>Array(N).fill(null));
   hands=[[],[],[],[]];
   alive=[true,true,true,true];
-  turn=0; sel=null; selHand=null; marks=[]; history=[]; gameOver=false;
+  turn=0; history=[];
   placeInitial(); draw();
 }
 
@@ -155,7 +149,15 @@ function placeInitial(){
   for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
 }
 
-function isNifu(o,c){
+function canPromote(p,r,nr){
+  if(!promote[p.t]) return false;
+  return (p.o===0 && (r<=2||nr<=2)) ||
+         (p.o===1 && (r>=12||nr>=12)) ||
+         (p.o===2 && (r>=12||nr>=12)) ||
+         (p.o===3 && (r<=2||nr<=2));
+}
+
+function nifuCheck(o,c){
   for(let r=0;r<N;r++){
     let p=board[r][c];
     if(p && p.o===o && p.t==='歩') return true;
@@ -163,45 +165,42 @@ function isNifu(o,c){
   return false;
 }
 
-function canPromote(p,r){
-  if(!promoteMap[p.t]) return false;
-  return (p.o===0 && r>=12)||(p.o===1 && r<=2)||(p.o===2 && r<=2)||(p.o===3 && r>=12);
+function nextTurn(){
+  let aliveCount=alive.filter(v=>v).length;
+  if(aliveCount===1){
+    alert(`P${alive.findIndex(v=>v)+1} の勝ちや！`);
+    return;
+  }
+  do{ turn=(turn+1)%4 }while(!alive[turn]);
 }
 
 function clickCell(r,c){
-  if(gameOver||!inPlay(r,c)) return;
+  if(!inPlay(r,c)) return;
 
   if(selHand){
-    if(selHand.t==='歩' && isNifu(turn,c)) return;
-    if(marks.some(m=>m[0]===r&&m[1]===c)){
-      saveHistory();
-      board[r][c]={t:selHand.t,o:turn};
-      hands[turn].splice(selHand.i,1);
-      selHand=null; marks=[];
-      nextTurn(); draw();
-    }
-    return;
+    if(selHand.t==='歩' && nifuCheck(turn,c)) return alert('二歩やで');
+    save();
+    board[r][c]={t:selHand.t,o:turn};
+    hands[turn].splice(selHand.i,1);
+    selHand=null; marks=[];
+    nextTurn(); draw(); return;
   }
 
   if(sel){
     if(marks.some(m=>m[0]===r&&m[1]===c)){
-      saveHistory();
+      save();
       let p=board[sel.r][sel.c];
       let cap=board[r][c];
       board[r][c]=p; board[sel.r][sel.c]=null;
-
+      if(canPromote(p,sel.r,r) && confirm('成る？')) p.t=promote[p.t];
       if(cap){
         if(cap.t==='王') alive[cap.o]=false;
         else hands[turn].push(unpromote[cap.t]||cap.t);
       }
-
-      if(canPromote(p,r)&&confirm('成りますか？')) p.t=promoteMap[p.t];
-
       sel=null; marks=[];
-      checkWin();
-      nextTurn(); draw();
-    }else{ sel=null; marks=[]; draw(); }
-    return;
+      nextTurn(); draw(); return;
+    }
+    sel=null; marks=[]; draw(); return;
   }
 
   let p=board[r][c];
@@ -210,69 +209,20 @@ function clickCell(r,c){
   }
 }
 
-function genMoves(p,r,c){
-  let res=[];
-  let F=dir(p.o), B=[-F[0],-F[1]], L=[F[1],-F[0]], R=[-F[1],F[0]];
-  let FL=[F[0]+L[0],F[1]+L[1]], FR=[F[0]+R[0],F[1]+R[1]];
-  let BL=[B[0]+L[0],B[1]+L[1]], BR=[B[0]+R[0],B[1]+R[1]];
-
-  const add=(dr,dc,rep=false)=>{
-    let nr=r+dr,nc=c+dc;
-    while(inPlay(nr,nc)){
-      if(board[nr][nc] && board[nr][nc].o===p.o) break;
-      res.push([nr,nc]);
-      if(board[nr][nc]||!rep) break;
-      nr+=dr; nc+=dc;
-    }
-  };
-
-  switch(p.t){
-    case '歩': add(F[0],F[1]); break;
-    case '香': add(F[0],F[1],true); break;
-    case '桂': add(F[0]*2+L[0],F[1]*2+L[1]); add(F[0]*2+R[0],F[1]*2+R[1]); break;
-    case '銀': [F,L,R,FL,FR].forEach(v=>add(v[0],v[1])); break;
-    case '金': case 'と': case '杏': case '圭': case '全':
-      [F,L,R,B,FL,FR].forEach(v=>add(v[0],v[1])); break;
-    case '飛': [F,B,L,R].forEach(v=>add(v[0],v[1],true)); break;
-    case '角': [FL,FR,BL,BR].forEach(v=>add(v[0],v[1],true)); break;
-    case '龍':
-      [F,B,L,R].forEach(v=>add(v[0],v[1],true));
-      [FL,FR,BL,BR].forEach(v=>add(v[0],v[1])); break;
-    case '馬':
-      [FL,FR,BL,BR].forEach(v=>add(v[0],v[1],true));
-      [F,B,L,R].forEach(v=>add(v[0],v[1])); break;
-  }
-  return res;
-}
-
 function clickHand(o,i){
-  if(gameOver||o!==turn||!alive[o]) return;
+  if(o!==turn||!alive[o]) return;
   selHand={o,i,t:hands[o][i]};
   marks=[];
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)
     if(inPlay(r,c)&&!board[r][c]) marks.push([r,c]);
-  }
   draw();
-}
-
-function nextTurn(){
-  do{ turn=(turn+1)%4 }while(!alive[turn]);
-}
-
-function checkWin(){
-  let aliveCount=alive.filter(v=>v).length;
-  if(aliveCount===1){
-    let w=alive.findIndex(v=>v);
-    alert(`🎉 P${w+1} の勝ちや！`);
-    gameOver=true;
-  }
 }
 
 function draw(){
   boardEl.innerHTML='';
   for(let r=0;r<N;r++)for(let c=0;c<N;c++){
     let d=document.createElement('div');
-    if(!inPlay(r,c)){ d.className='cell wall'; boardEl.appendChild(d); continue; }
+    if(!inPlay(r,c)){d.className='cell wall';boardEl.appendChild(d);continue;}
     d.className='cell '+((r+c)%2?'dark':'');
     if(sel&&sel.r===r&&sel.c===c) d.classList.add('sel');
     if(marks.some(m=>m[0]===r&&m[1]===c)) d.classList.add('move');
@@ -286,12 +236,10 @@ function draw(){
     boardEl.appendChild(d);
   }
 
-  turnEl.textContent=gameOver?'ゲーム終了':'手番：P'+(turn+1);
+  turnEl.textContent='手番：P'+(turn+1);
 
   handsEl.forEach((el,o)=>{
-    el.innerHTML=alive[o]
-      ? `<h3>P${o+1} 持ち駒</h3><div class="list"></div>`
-      : `<h3>P${o+1} 脱落</h3>`;
+    el.innerHTML=alive[o]?`<h3>P${o+1} 持ち駒</h3><div class="list"></div>`:`<h3>P${o+1} 脱落</h3>`;
     if(!alive[o]) return;
     let list=el.querySelector('.list');
     hands[o].forEach((pc,i)=>{

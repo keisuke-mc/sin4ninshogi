@@ -2,149 +2,152 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>四人将棋</title>
 <style>
-:root{
-  --cell:40px;
-  --wood:#f4d9a6;
-  --wood2:#e2b36d;
-  --bg:#d9932a;
-  --frame:#c6862c;
-  --sel:#ff0;
-  --move:#8fd3ff;
-}
-body{margin:0;padding:10px;background:var(--bg);font-family:sans-serif}
-h1{margin:4px 0;font-size:18px}
-button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7e0}
-
-.layout{
-  display:grid;
-  grid-template-columns:200px auto 200px;
-  grid-template-rows:auto auto;
-  gap:10px;
-}
-
-.board{
-  grid-column:2;
-  grid-row:1 / span 2;
-  display:grid;
-  grid-template-columns:repeat(15,var(--cell));
-  grid-template-rows:repeat(15,var(--cell));
-  gap:2px;
-  background:var(--frame);
-  padding:6px;
-  border-radius:8px;
-}
-
-.cell{
-  background:var(--wood);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:18px;
-  cursor:pointer;
-}
-.dark{background:var(--wood2)}
-.wall{background:var(--bg);pointer-events:none}
-.sel{outline:3px solid var(--sel)}
-.move{background:var(--move)!important}
-
-.p0{transform:rotate(180deg)}
-.p1{transform:rotate(270deg)}
-.p2{transform:rotate(0deg)}
-.p3{transform:rotate(90deg)}
-
-.hand{
-  background:#fff3d4;
-  padding:6px;
-  border-radius:6px;
-}
-.hand h3{margin:0 0 6px;font-size:13px;text-align:center}
-.list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-.pc{
-  background:#fff;
-  border:1px solid #999;
-  border-radius:4px;
-  padding:4px 6px;
-  cursor:pointer;
-}
+  body{font-family:sans-serif}
+  table{border-collapse:collapse;margin:auto}
+  td{
+    width:36px;height:36px;
+    border:1px solid #444;
+    text-align:center;
+    cursor:pointer;
+    user-select:none;
+  }
+  .sel{background:#faa}
+  .mark{background:#cfc}
+  .dead{opacity:.3}
 </style>
 </head>
 <body>
 
-<h1>真・四人将棋</h1>
-<div>
-  <span id="turn"></span>
-  <button onclick="undo()">待った</button>
-  <button onclick="init()">初期化</button>
-</div>
+<h3 id="info"></h3>
 
-<div class="layout">
-  <div class="hand" id="hand0"></div>
-  <div class="hand" id="hand1"></div>
-  <div class="board" id="board"></div>
-  <div class="hand" id="hand3"></div>
-  <div class="hand" id="hand2"></div>
-</div>
+<table id="board"></table>
+
+<div id="hands"></div>
 
 <script>
 const N=15;
-const boardEl=document.getElementById('board');
-const turnEl=document.getElementById('turn');
-const handsEl=[
-  document.getElementById('hand0'),
-  document.getElementById('hand1'),
-  document.getElementById('hand2'),
-  document.getElementById('hand3')
-];
+const players=4;
+let turn=0;
+let alive=[true,true,true,true];
 
-let board,hands,alive,turn;
-let sel=null, selHand=null, marks=[];
-let history=[];
+let board=[...Array(N)].map(()=>Array(N).fill(null));
+let hands=[[],[],[],[]];
 
-const back=['香','桂','銀','金','王','金','銀','桂','香'];
-const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
+let sel=null, marks=[];
+let dropPiece=null;
 
-function inPlay(r,c){
-  if(r<3&&c<3) return false;
-  if(r<3&&c>=12) return false;
-  if(r>=12&&c<3) return false;
-  if(r>=12&&c>=12) return false;
-  return r>=0&&r<N&&c>=0&&c<N;
+/* ===== 初期配置（最低限） ===== */
+board[7][7]={t:'王',o:0};
+board[7][6]={t:'飛',o:0};
+board[6][7]={t:'角',o:0};
+
+board[0][7]={t:'王',o:1};
+board[1][7]={t:'飛',o:1};
+board[0][6]={t:'角',o:1};
+
+board[7][14]={t:'王',o:2};
+board[7][13]={t:'飛',o:2};
+board[6][14]={t:'角',o:2};
+
+board[14][7]={t:'王',o:3};
+board[13][7]={t:'飛',o:3};
+board[14][6]={t:'角',o:3};
+
+const unpromote={};
+
+/* ===== 描画 ===== */
+function draw(){
+  const t=document.getElementById('board');
+  t.innerHTML='';
+  for(let r=0;r<N;r++){
+    const tr=document.createElement('tr');
+    for(let c=0;c<N;c++){
+      const td=document.createElement('td');
+      let p=board[r][c];
+      if(p){
+        td.textContent=p.t;
+        if(!alive[p.o]) td.classList.add('dead');
+      }
+      if(sel && sel.r===r && sel.c===c) td.classList.add('sel');
+      if(marks.some(m=>m[0]===r&&m[1]===c)) td.classList.add('mark');
+      td.onclick=()=>clickCell(r,c);
+      tr.appendChild(td);
+    }
+    t.appendChild(tr);
+  }
+  drawHands();
+  document.getElementById('info').textContent=
+    `手番：P${turn+1} ${alive[turn]?'':'(脱落)'}`;
 }
-function dir(o){return[[1,0],[0,-1],[-1,0],[0,1]][o];}
 
-/* 初期化 */
-function init(){
-  board=[...Array(N)].map(()=>Array(N).fill(null));
-  hands=[[],[],[],[]];
-  alive=[true,true,true,true];
-  turn=0; sel=null; selHand=null; marks=[]; history=[];
-  placeInitial(); draw();
+/* ===== 持ち駒 ===== */
+function drawHands(){
+  const d=document.getElementById('hands');
+  d.innerHTML='';
+  hands.forEach((h,i)=>{
+    const div=document.createElement('div');
+    div.textContent=`P${i+1}: `;
+    if(!alive[i]) div.classList.add('dead');
+    h.forEach((t,idx)=>{
+      const b=document.createElement('button');
+      b.textContent=t;
+      b.disabled=!alive[turn]||turn!==i;
+      b.onclick=()=>{
+        dropPiece={t,from:i,idx};
+        sel=null; marks=[];
+      };
+      div.appendChild(b);
+    });
+    d.appendChild(div);
+  });
 }
 
-function placeInitial(){
-  const cols=[3,4,5,6,7,8,9,10,11];
-  const rows=[3,4,5,6,7,8,9,10,11];
-  for(let i=0;i<9;i++) board[0][cols[i]]={t:back[i],o:0};
-  board[1][4]={t:'飛',o:0}; board[1][10]={t:'角',o:0};
-  for(let i=0;i<9;i++) board[2][cols[i]]={t:'歩',o:0};
+/* ===== 盤クリック ===== */
+function clickCell(r,c){
+  if(!alive[turn]) return;
 
-  for(let i=0;i<9;i++) board[rows[i]][14]={t:back[i],o:1};
-  board[4][13]={t:'飛',o:1}; board[10][13]={t:'角',o:1};
-  for(let i=0;i<9;i++) board[rows[i]][12]={t:'歩',o:1};
+  // 持ち駒を打つ
+  if(dropPiece){
+    if(board[r][c]) return;
+    board[r][c]={t:dropPiece.t,o:turn};
+    hands[turn].splice(dropPiece.idx,1);
+    dropPiece=null;
+    nextTurn(); draw(); return;
+  }
 
-  for(let i=0;i<9;i++) board[14][cols[8-i]]={t:back[i],o:2};
-  board[13][10]={t:'飛',o:2}; board[13][4]={t:'角',o:2};
-  for(let i=0;i<9;i++) board[12][cols[8-i]]={t:'歩',o:2};
-
-  for(let i=0;i<9;i++) board[rows[8-i]][0]={t:back[i],o:3};
-  board[10][1]={t:'飛',o:3}; board[4][1]={t:'角',o:3};
-  for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
+  let p=board[r][c];
+  if(sel){
+    if(marks.some(m=>m[0]===r&&m[1]===c)){
+      move(sel.r,sel.c,r,c);
+    }
+    sel=null; marks=[];
+  }else if(p && p.o===turn){
+    sel={r,c};
+    marks=genMoves(p,r,c);
+  }
+  draw();
 }
 
-/* 脱落処理 */
+/* ===== 移動 ===== */
+function move(sr,sc,r,c){
+  let p=board[sr][sc];
+  let cap=board[r][c];
+  board[r][c]=p;
+  board[sr][sc]=null;
+
+  if(cap){
+    if(cap.t==='王'){
+      eliminate(cap.o);
+    }else{
+      hands[turn].push(cap.t);
+    }
+  }
+  nextTurn();
+}
+
+/* ===== 脱落 ===== */
 function eliminate(o){
   alive[o]=false;
   for(let r=0;r<N;r++)for(let c=0;c<N;c++){
@@ -154,145 +157,46 @@ function eliminate(o){
   hands[o]=[];
 }
 
-/* 王の位置 */
-function findKing(o){
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    let p=board[r][c];
-    if(p && p.o===o && p.t==='王') return [r,c];
-  }
-  return null;
+/* ===== 手番 ===== */
+function nextTurn(){
+  do{turn=(turn+1)%players}while(!alive[turn]);
 }
 
-/* 王手判定 */
-function isCheck(o){
-  let k=findKing(o);
-  if(!k) return false;
-  let [kr,kc]=k;
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    let p=board[r][c];
-    if(!p||p.o===o||!alive[p.o]) continue;
-    let mv=genMoves(p,r,c);
-    if(mv.some(m=>m[0]===kr&&m[1]===kc)) return true;
-  }
-  return false;
-}
-
-/* 動き生成 */
+/* ===== 駒の動き ===== */
 function genMoves(p,r,c){
   let res=[];
-  let F=dir(p.o), B=[-F[0],-F[1]];
-  let L=[F[1],-F[0]], R=[-F[1],F[0]];
-  let FL=[F[0]+L[0],F[1]+L[1]];
-  let FR=[F[0]+R[0],F[1]+R[1]];
-  let BL=[B[0]+L[0],B[1]+L[1]];
-  let BR=[B[0]+R[0],B[1]+R[1]];
-
-  const add=(dr,dc,rep=false)=>{
+  const slide=(dr,dc)=>{
     let nr=r+dr,nc=c+dc;
-    while(inPlay(nr,nc)){
-      let q=board[nr][nc];
-      if(q && q.o===p.o) break;
-      if(q && q.t==='王' && !alive[q.o]) break;
+    while(nr>=0&&nr<N&&nc>=0&&nc<N){
+      if(board[nr][nc]){
+        if(board[nr][nc].t==='王'&&!alive[board[nr][nc].o]) break;
+        if(board[nr][nc].o!==p.o) res.push([nr,nc]);
+        break;
+      }
       res.push([nr,nc]);
-      if(q||!rep) break;
       nr+=dr; nc+=dc;
     }
   };
-
-  switch(p.t){
-    case '歩': add(F[0],F[1]); break;
-    case '香': add(F[0],F[1],true); break;
-    case '桂':
-      add(F[0]*2+L[0],F[1]*2+L[1]);
-      add(F[0]*2+R[0],F[1]*2+R[1]);
-      break;
-    case '銀': [F,L,R,FL,FR].forEach(v=>add(v[0],v[1])); break;
-    case '金':
-    case 'と': case '杏': case '圭': case '全':
-      [F,B,L,R,FL,FR].forEach(v=>add(v[0],v[1]));
-      break;
-    case '飛': [F,B,L,R].forEach(v=>add(v[0],v[1],true)); break;
-    case '角': [FL,FR,BL,BR].forEach(v=>add(v[0],v[1],true)); break;
-    case '龍':
-      [F,B,L,R].forEach(v=>add(v[0],v[1],true));
-      [FL,FR,BL,BR].forEach(v=>add(v[0],v[1]));
-      break;
-    case '馬':
-      [FL,FR,BL,BR].forEach(v=>add(v[0],v[1],true));
-      [F,B,L,R].forEach(v=>add(v[0],v[1]));
-      break;
+  if(p.t==='飛'){
+    slide(1,0);slide(-1,0);slide(0,1);slide(0,-1);
+  }
+  if(p.t==='角'){
+    slide(1,1);slide(1,-1);slide(-1,1);slide(-1,-1);
+  }
+  if(p.t==='王'){
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      if(!dr&&!dc)continue;
+      let nr=r+dr,nc=c+dc;
+      if(nr<0||nr>=N||nc<0||nc>=N)continue;
+      let q=board[nr][nc];
+      if(!q||(q.o!==p.o&&!(q.t==='王'&&!alive[q.o])))
+        res.push([nr,nc]);
+    }
   }
   return res;
 }
 
-/* クリック */
-function clickCell(r,c){
-  if(!inPlay(r,c)) return;
-
-  if(sel){
-    if(marks.some(m=>m[0]===r&&m[1]===c)){
-      let p=board[sel.r][sel.c];
-      let cap=board[r][c];
-      board[r][c]=p; board[sel.r][sel.c]=null;
-      if(cap){
-        if(cap.t==='王') eliminate(cap.o);
-        else hands[turn].push(unpromote[cap.t]||cap.t);
-      }
-      sel=null; marks=[];
-      nextTurn(); draw(); return;
-    }
-    sel=null; marks=[]; draw(); return;
-  }
-
-  let p=board[r][c];
-  if(p && p.o===turn && alive[turn]){
-    sel={r,c}; marks=genMoves(p,r,c); draw();
-  }
-}
-
-/* 手番 */
-function nextTurn(){
-  do{ turn=(turn+1)%4 }while(!alive[turn]);
-}
-
-/* 描画 */
-function draw(){
-  boardEl.innerHTML='';
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    let d=document.createElement('div');
-    if(!inPlay(r,c)){ d.className='cell wall'; boardEl.appendChild(d); continue; }
-    d.className='cell '+((r+c)%2?'dark':'');
-    if(sel&&sel.r===r&&sel.c===c) d.classList.add('sel');
-    if(marks.some(m=>m[0]===r&&m[1]===c)) d.classList.add('move');
-    if(board[r][c]){
-      let s=document.createElement('span');
-      s.textContent=board[r][c].t;
-      s.className='p'+board[r][c].o;
-      d.appendChild(s);
-    }
-    d.onclick=()=>clickCell(r,c);
-    boardEl.appendChild(d);
-  }
-
-  turnEl.textContent='手番：P'+(turn+1)+(isCheck(turn)?'（王手）':'');
-
-  handsEl.forEach((el,o)=>{
-    if(!alive[o]){
-      el.innerHTML='<h3>P'+(o+1)+' 脱落</h3>';
-      return;
-    }
-    el.innerHTML='<h3>P'+(o+1)+' 持ち駒</h3><div class="list"></div>';
-    let list=el.querySelector('.list');
-    hands[o].forEach(pc=>{
-      let d=document.createElement('div');
-      d.className='pc'; d.textContent=pc;
-      list.appendChild(d);
-    });
-  });
-}
-
-function undo(){}
-init();
+draw();
 </script>
 </body>
 </html>

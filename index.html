@@ -166,7 +166,6 @@ function placeInitial(){
   for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
 }
 
-/* ===== 銀の動き ===== */
 function genMoves(p,r,c){
   let res=[];
   let F=dir(p.o), B=[-F[0],-F[1]], L=[F[1],-F[0]], R=[-F[1],F[0]];
@@ -187,24 +186,22 @@ function genMoves(p,r,c){
   }
   if(p.t==='銀'){
     [F,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
-     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
-     .forEach(v=>add(v[0],v[1]));
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1]));
   }
   if('金と杏圭全'.includes(p.t)){
-    [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
-      .forEach(v=>add(v[0],v[1]));
+    [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]].forEach(v=>add(v[0],v[1]));
   }
   if(p.t==='飛'||p.t==='龍') [F,B,L,R].forEach(v=>add(v[0],v[1],true));
   if(p.t==='角'||p.t==='馬')
     [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
      [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
-      .forEach(v=>add(v[0],v[1],true));
+    .forEach(v=>add(v[0],v[1],true));
   if(p.t==='龍'||p.t==='馬') [F,B,L,R].forEach(v=>add(v[0],v[1]));
   return res;
 }
 
-/* ===== 王手判定（指定プレイヤーのみ） ===== */
-function isCheckBy(player){
+/* === 今の手番プレイヤーが王手をかけてるか === */
+function isCheckFrom(player){
   for(let o=0;o<4;o++){
     if(o===player || !alive[o]) continue;
     let kr,kc;
@@ -237,7 +234,7 @@ function clickCell(r,c){
       board[r][c]={t:selHand.t,o:turn};
       hands[turn].splice(selHand.i,1);
       selHand=null; marks=[];
-      if(isCheckBy(turn)) showCheck();
+      if(isCheckFrom(turn)) showCheck();
       nextTurn(); draw();
     }
     return;
@@ -260,7 +257,7 @@ function clickCell(r,c){
       }
 
       sel=null; marks=[];
-      if(isCheckBy(turn)) showCheck();
+      if(isCheckFrom(turn)) showCheck();
       nextTurn(); draw();
     }else{ sel=null; marks=[]; draw(); }
     return;
@@ -272,7 +269,6 @@ function clickCell(r,c){
   }
 }
 
-/* ===== 持ち駒：再クリックで解除 ===== */
 function clickHand(o,i){
   if(o!==turn) return;
 

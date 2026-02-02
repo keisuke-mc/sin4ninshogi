@@ -401,7 +401,30 @@ function importCode(code){
 /*復元ボタン用*/
 function saveCode(){
   const code = exportCode();
-  prompt('このコードをコピーして保存してな', code);
+
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(code)
+      .then(()=>{
+        alert('コードをクリップボードにコピーしたで');
+      })
+      .catch(()=>{
+        fallbackCopy(code);
+      });
+  }else{
+    fallbackCopy(code);
+  }
+}
+
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  alert('コードをコピーしたで');
 }
 
 function loadCode(){

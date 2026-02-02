@@ -1,3 +1,16 @@
+/* ===== 手番方向ハイライト ===== */
+
+.board {
+  position: relative;
+}
+
+/* 共通スタイル */
+.board::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
 /* P1（上が手前） */
 .board.turn0::before {
   top: -10px;

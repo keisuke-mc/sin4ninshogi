@@ -17,7 +17,7 @@
   left: 0;
   right: 0;
   height: 10px;
-  background: linear-gradient(to bottom, rgba(0,120,255,0.8), transparent);
+  background: linear-gradient(to bottom, rgba(0,120,255,1), transparent);
 }
 
 /* P2（右が手前） */
@@ -26,7 +26,7 @@
   top: 0;
   bottom: 0;
   width: 10px;
-  background: linear-gradient(to left, rgba(0,120,255,0.8), transparent);
+  background: linear-gradient(to left, rgba(0,120,255,1), transparent);
 }
 
 /* P3（下が手前） */
@@ -35,7 +35,7 @@
   left: 0;
   right: 0;
   height: 10px;
-  background: linear-gradient(to top, rgba(0,120,255,0.8), transparent);
+  background: linear-gradient(to top, rgba(0,120,255,1), transparent);
 }
 
 /* P4（左が手前） */
@@ -44,5 +44,5 @@
   top: 0;
   bottom: 0;
   width: 10px;
-  background: linear-gradient(to right, rgba(0,120,255,0.8), transparent);
+  background: linear-gradient(to right, rgba(0,120,255,1), transparent);
 }

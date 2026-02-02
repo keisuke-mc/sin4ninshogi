@@ -96,6 +96,11 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
   <button onclick="init()">初期化</button>
 </div>
 
+<div style="margin:6px 0">
+  <button onclick="saveCode()">コード保存</button>
+  <button onclick="loadCode()">コード復元</button>
+</div>
+
 <div class="layout">
   <div class="hand" id="hand0"></div>
   <div class="hand" id="hand1"></div>
@@ -358,6 +363,51 @@ function draw(){
   boardEl.className = 'board turn' + turn;
 }
 
+/*保存機能*/
+function exportCode(){
+  const data = {
+    board,
+    hands,
+    alive,
+    turn
+  };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+}
+
+/*復元機能*/
+function importCode(code){
+  try{
+    const data = JSON.parse(
+      decodeURIComponent(escape(atob(code)))
+    );
+
+    board = data.board;
+    hands = data.hands;
+    alive = data.alive;
+    turn  = data.turn;
+
+    sel = null;
+    selHand = null;
+    marks = [];
+    history = [];
+
+    draw();
+  }catch(e){
+    alert('コードが壊れてるで');
+  }
+}
+
+
+/*復元ボタン用*/
+function saveCode(){
+  const code = exportCode();
+  prompt('このコードをコピーして保存してな', code);
+}
+
+function loadCode(){
+  const code = prompt('保存したコードを貼り付けてな');
+  if(code) importCode(code.trim());
+}
 
 init();
 </script>

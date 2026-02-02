@@ -334,12 +334,8 @@ function draw(){
     if(marks.some(m=>m[0]===r&&m[1]===c)) d.classList.add('move');
     if(board[r][c]){
       let s = document.createElement('div');
+      s.textContent = board[r][c].t;
       s.className = 'piece p' + board[r][c].o;
-      
-      let t = document.createElement('span');
-      t.textContent = board[r][c].t;
-
-      s.appendChild(t);
       d.appendChild(s);
     }
     d.onclick=()=>clickCell(r,c);

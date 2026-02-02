@@ -2,33 +2,15 @@
   overflow: visible;
 }
 
-/* ===== 将棋駒SVG・文字共存 安定版 ===== */
+/* ===== 将棋駒 SVG + 文字 完全安定版 ===== */
 
 .piece {
   position: relative;
   width: 90%;
   height: 90%;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 18px;
-  font-weight: bold;
-  font-family: "Hiragino Mincho ProN",
-               "Yu Mincho",
-               "Noto Serif JP",
-               serif;
-  color: #000;
-
-  /* ← 文字を前面に固定 */
-  z-index: 2;
-
-  text-shadow: 1px 1px 0 #fff;
-  pointer-events: none;
 }
 
-/* SVG将棋駒（背景） */
+/* SVGの駒 */
 .piece::before {
   content: "";
   position: absolute;
@@ -44,16 +26,33 @@
 fill='%23f5d76e' stroke='%23000' stroke-width='6' stroke-linejoin='round'/>\
 </svg>");
 
-  /* ← SVGは文字の後ろ */
   z-index: 1;
 }
 
-/* 向き（既存仕様そのまま） */
+/* 文字（← DOMテキストは使わない） */
+.piece::after {
+  content: attr(data-piece);
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+  font-weight: bold;
+  font-family: "Hiragino Mincho ProN",
+               "Yu Mincho",
+               "Noto Serif JP",
+               serif;
+  color: #000;
+  text-shadow: 1px 1px 0 #fff;
+
+  z-index: 2;
+}
+
+/* 向き */
 .p0 { transform: rotate(180deg); }
 .p1 { transform: rotate(270deg); }
 .p2 { transform: rotate(0deg); }
 .p3 { transform: rotate(90deg); }
-
-.cell {
-  overflow: visible;
-}

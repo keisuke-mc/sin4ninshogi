@@ -50,3 +50,7 @@ fill='%23f5d76e' stroke='%23000' stroke-width='6' stroke-linejoin='round'/>\
 .p1 { transform: rotate(270deg); }
 .p2 { transform: rotate(0deg); }
 .p3 { transform: rotate(90deg); }
+
+.cell {
+  overflow: visible;
+}

@@ -1,0 +1,41 @@
+/* ===== 将棋駒SVG表示用CSS ===== */
+/* 他のCSSとは完全分離して使用する前提 */
+
+/* 駒本体（SVG背景＋文字） */
+.piece {
+  width: 90%;
+  height: 90%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 文字設定 */
+  font-size: 18px;
+  font-weight: bold;
+  font-family: "Hiragino Mincho ProN",
+               "Yu Mincho",
+               "Noto Serif JP",
+               serif;
+  color: #000;
+  text-shadow: 1px 1px 0 #fff;
+
+  /* SVG将棋駒（背景） */
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='https://keisuke-mc.github.io/sin4ninshogi/koma.svg' viewBox='0 0 220 260'>\
+<path d='M110 10 L175 55 L205 230 Q110 255 15 230 L45 55 Z' \
+fill='%23f5d76e' stroke='%23000' stroke-width='6' stroke-linejoin='round'/>\
+</svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+
+  /* 回転時のズレ防止 */
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* プレイヤーごとの向き（既存CSSと連動） */
+.p0 { transform: rotate(180deg); }
+.p1 { transform: rotate(270deg); }
+.p2 { transform: rotate(0deg); }
+.p3 { transform: rotate(90deg); }

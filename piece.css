@@ -46,5 +46,6 @@ fill='%23f5d76e' stroke='%23000' stroke-width='6' stroke-linejoin='round'/>\
 .p2 { transform: rotate(0deg); }
 .p3 { transform: rotate(90deg); }
 
-.piece::before { z-index: 0; }
-.piece { z-index: 1; }
+.cell {
+  overflow: visible;
+}

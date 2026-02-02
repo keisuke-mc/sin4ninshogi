@@ -1,4 +1,4 @@
-/* ===== 将棋駒SVG（iOS Safari 対応版） ===== */
+/* ===== 将棋駒SVG（確定安定版） ===== */
 
 .piece {
   position: relative;
@@ -9,19 +9,18 @@
   align-items: center;
   justify-content: center;
 
-  font-size: 18px;
-  font-weight: bold;
   font-family: "Hiragino Mincho ProN",
                "Yu Mincho",
                "Noto Serif JP",
                serif;
+  font-weight: bold;
+  font-size: 18px;
   color: #000;
-  text-shadow: 1px 1px 0 #fff;
 
   pointer-events: none;
 }
 
-/* SVG駒本体 */
+/* SVG駒（最背面） */
 .piece::before {
   content: "";
   position: absolute;
@@ -37,15 +36,18 @@
 fill='%23f5d76e' stroke='%23000' stroke-width='6' stroke-linejoin='round'/>\
 </svg>");
 
-  z-index: -1;
+  z-index: 0;
 }
 
-/* 向き（既存ロジックと一致） */
+/* 文字（必ず最前面） */
+.piece > span {
+  position: relative;
+  z-index: 1;
+  text-shadow: 1px 1px 0 #fff;
+}
+
+/* 向き */
 .p0 { transform: rotate(180deg); }
 .p1 { transform: rotate(270deg); }
 .p2 { transform: rotate(0deg); }
 .p3 { transform: rotate(90deg); }
-
-.cell {
-  overflow: visible;
-}

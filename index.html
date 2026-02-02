@@ -146,12 +146,19 @@ function inPlay(r,c){
 }
 function dir(o){return[[1,0],[0,-1],[-1,0],[0,1]][o];}
 
-function init(){
+function initCore(){
   board=[...Array(N)].map(()=>Array(N).fill(null));
   hands=[[],[],[],[]];
   alive=[true,true,true,true];
   turn=0; history=[];
   placeInitial(); draw();
+}
+
+function init(){
+  if(!confirm('本当に初期化する？\n今の対局データは消えるで')){
+    return;
+  }
+  initCore();
 }
 
 function placeInitial(){

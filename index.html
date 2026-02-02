@@ -191,28 +191,32 @@ function genMoves(p,r,c){
   }
   if('金と杏圭全'.includes(p.t)){
     [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
-      .forEach(v=>add(v[0],v[1]));
+    .forEach(v=>add(v[0],v[1]));
   }
   if(p.t==='飛'||p.t==='龍') [F,B,L,R].forEach(v=>add(v[0],v[1],true));
   if(p.t==='角'||p.t==='馬')
     [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
      [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
-      .forEach(v=>add(v[0],v[1],true));
+     .forEach(v=>add(v[0],v[1],true));
   if(p.t==='龍'||p.t==='馬') [F,B,L,R].forEach(v=>add(v[0],v[1]));
   return res;
 }
 
-function isCheckFor(player){
-  let kr,kc;
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    let p=board[r][c];
-    if(p&&p.o===player&&p.t==='王'){kr=r;kc=c;}
-  }
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    let p=board[r][c];
-    if(p&&p.o!==player){
-      if(genMoves(p,r,c).some(m=>m[0]===kr&&m[1]===kc))
-        return true;
+/* 王手を「誰が」かけてるか判定 */
+function isCheckBy(attacker){
+  for(let o=0;o<4;o++){
+    if(o===attacker||!alive[o]) continue;
+    let kr,kc;
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+      let p=board[r][c];
+      if(p&&p.o===o&&p.t==='王'){kr=r;kc=c;}
+    }
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+      let p=board[r][c];
+      if(p&&p.o===attacker){
+        if(genMoves(p,r,c).some(m=>m[0]===kr&&m[1]===kc))
+          return true;
+      }
     }
   }
   return false;
@@ -232,10 +236,8 @@ function clickCell(r,c){
       board[r][c]={t:selHand.t,o:turn};
       hands[turn].splice(selHand.i,1);
       selHand=null; marks=[];
-      let attacker=turn;
-      nextTurn();
-      if(isCheckFor(turn)) showCheck();
-      draw();
+      if(isCheckBy(turn)) showCheck();
+      nextTurn(); draw();
     }
     return;
   }
@@ -252,15 +254,9 @@ function clickCell(r,c){
         else hands[turn].push(unpromote[cap.t]||cap.t);
       }
 
-      if(promoteMap[p.t] && inEnemyCamp(p.o,r,c)){
-        if(confirm('成る？')) p.t=promoteMap[p.t];
-      }
-
       sel=null; marks=[];
-      let attacker=turn;
-      nextTurn();
-      if(isCheckFor(turn)) showCheck();
-      draw();
+      if(isCheckBy(turn)) showCheck();
+      nextTurn(); draw();
     }else{ sel=null; marks=[]; draw(); }
     return;
   }
@@ -282,6 +278,15 @@ function clickHand(o,i){
   selHand={o,i,t}; marks=[];
   for(let r=0;r<N;r++)for(let c=0;c<N;c++){
     if(!inPlay(r,c)||board[r][c]) continue;
+    if(t==='歩'){
+      let ok=true;
+      for(let k=0;k<N;k++){
+        let rr=o%2===0?k:r, cc=o%2===0?c:k;
+        let p=board[rr][cc];
+        if(p&&p.o===o&&p.t==='歩') ok=false;
+      }
+      if(!ok) continue;
+    }
     marks.push([r,c]);
   }
   draw();

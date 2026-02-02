@@ -200,18 +200,18 @@ function genMoves(p,r,c){
   return res;
 }
 
-/* === 今の手番プレイヤーが王手をかけてるか === */
-function isCheckFrom(player){
-  for(let o=0;o<4;o++){
-    if(o===player || !alive[o]) continue;
+/* 今のプレイヤーが王手をかけてるか */
+function isCheckBy(o){
+  for(let t=0;t<4;t++){
+    if(t===o||!alive[t]) continue;
     let kr,kc;
     for(let r=0;r<N;r++)for(let c=0;c<N;c++){
       let p=board[r][c];
-      if(p&&p.o===o&&p.t==='王'){kr=r;kc=c;}
+      if(p&&p.o===t&&p.t==='王'){kr=r;kc=c;}
     }
     for(let r=0;r<N;r++)for(let c=0;c<N;c++){
       let p=board[r][c];
-      if(p&&p.o===player){
+      if(p&&p.o===o){
         if(genMoves(p,r,c).some(m=>m[0]===kr&&m[1]===kc))
           return true;
       }
@@ -234,7 +234,7 @@ function clickCell(r,c){
       board[r][c]={t:selHand.t,o:turn};
       hands[turn].splice(selHand.i,1);
       selHand=null; marks=[];
-      if(isCheckFrom(turn)) showCheck();
+      if(isCheckBy(turn)) showCheck();
       nextTurn(); draw();
     }
     return;
@@ -257,7 +257,7 @@ function clickCell(r,c){
       }
 
       sel=null; marks=[];
-      if(isCheckFrom(turn)) showCheck();
+      if(isCheckBy(turn)) showCheck();
       nextTurn(); draw();
     }else{ sel=null; marks=[]; draw(); }
     return;
@@ -272,6 +272,7 @@ function clickCell(r,c){
 function clickHand(o,i){
   if(o!==turn) return;
 
+  /* もう一回押したら解除 */
   if(selHand && selHand.o===o && selHand.i===i){
     selHand=null; marks=[]; draw(); return;
   }

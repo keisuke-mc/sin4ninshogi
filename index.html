@@ -150,8 +150,10 @@ function initCore(){
   board=[...Array(N)].map(()=>Array(N).fill(null));
   hands=[[],[],[],[]];
   alive=[true,true,true,true];
-  turn=0; history=[];
-  placeInitial(); draw();
+  turn=0;
+  history=[];
+  placeInitial();
+  draw();
 }
 
 function init(){

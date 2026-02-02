@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>真・四人将棋</title>
 <link rel="icon" href="favicon.ico?v=1">
+<link rel="stylesheet" href="piece.css">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
@@ -332,9 +333,9 @@ function draw(){
     if(sel&&sel.r===r&&sel.c===c) d.classList.add('sel');
     if(marks.some(m=>m[0]===r&&m[1]===c)) d.classList.add('move');
     if(board[r][c]){
-      let s=document.createElement('span');
-      s.textContent=board[r][c].t;
-      s.className='p'+board[r][c].o;
+      let s = document.createElement('div');
+      s.textContent = board[r][c].t;
+      s.className = 'piece p' + board[r][c].o;
       d.appendChild(s);
     }
     d.onclick=()=>clickCell(r,c);

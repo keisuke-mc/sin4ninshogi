@@ -166,6 +166,11 @@ function placeInitial(){
   for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
 }
 
+function inEnemyCamp(o,r,c){
+  return (o===0&&r>=12)||(o===2&&r<=2)||(o===1&&c<=2)||(o===3&&c>=12);
+}
+
+/* ===== 駒の動き ===== */
 function genMoves(p,r,c){
   let res=[];
   let F=dir(p.o), B=[-F[0],-F[1]], L=[F[1],-F[0]], R=[-F[1],F[0]];
@@ -186,10 +191,12 @@ function genMoves(p,r,c){
   }
   if(p.t==='銀'){
     [F,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
-     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1]));
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
+     .forEach(v=>add(v[0],v[1]));
   }
   if('金と杏圭全'.includes(p.t)){
-    [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]].forEach(v=>add(v[0],v[1]));
+    [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
+    .forEach(v=>add(v[0],v[1]));
   }
   if(p.t==='飛'||p.t==='龍') [F,B,L,R].forEach(v=>add(v[0],v[1],true));
   if(p.t==='角'||p.t==='馬')
@@ -200,18 +207,18 @@ function genMoves(p,r,c){
   return res;
 }
 
-/* 今のプレイヤーが王手をかけてるか */
-function isCheckBy(o){
-  for(let t=0;t<4;t++){
-    if(t===o||!alive[t]) continue;
+/* ===== 王手判定（攻撃側限定） ===== */
+function isCheck(attacker){
+  for(let o=0;o<4;o++){
+    if(o===attacker||!alive[o]) continue;
     let kr,kc;
     for(let r=0;r<N;r++)for(let c=0;c<N;c++){
       let p=board[r][c];
-      if(p&&p.o===t&&p.t==='王'){kr=r;kc=c;}
+      if(p&&p.o===o&&p.t==='王'){kr=r;kc=c;}
     }
     for(let r=0;r<N;r++)for(let c=0;c<N;c++){
       let p=board[r][c];
-      if(p&&p.o===o){
+      if(p&&p.o===attacker){
         if(genMoves(p,r,c).some(m=>m[0]===kr&&m[1]===kc))
           return true;
       }
@@ -222,7 +229,7 @@ function isCheckBy(o){
 
 function showCheck(){
   checkMsg.style.display='flex';
-  setTimeout(()=>checkMsg.style.display='none',1000);
+  setTimeout(()=>checkMsg.style.display='none',800);
 }
 
 function clickCell(r,c){
@@ -234,7 +241,7 @@ function clickCell(r,c){
       board[r][c]={t:selHand.t,o:turn};
       hands[turn].splice(selHand.i,1);
       selHand=null; marks=[];
-      if(isCheckBy(turn)) showCheck();
+      if(isCheck(turn)) showCheck();
       nextTurn(); draw();
     }
     return;
@@ -257,7 +264,7 @@ function clickCell(r,c){
       }
 
       sel=null; marks=[];
-      if(isCheckBy(turn)) showCheck();
+      if(isCheck(turn)) showCheck();
       nextTurn(); draw();
     }else{ sel=null; marks=[]; draw(); }
     return;

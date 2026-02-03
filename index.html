@@ -292,6 +292,12 @@ function clickCell(r,c){
       let cap=board[r][c];
       board[r][c]=p; board[sel.r][sel.c]=null;
 
+          // ★ 打った駒が「次に動いた」判定
+      if(p.dropped){
+        p.movedAfterDrop = true;
+        delete p.dropped;
+      }
+      
       if(cap){
         if(cap.t==='王'){ alive[cap.o]=false; checkWin(); }
         else hands[turn].push(unpromote[cap.t]||cap.t);

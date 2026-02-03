@@ -145,20 +145,27 @@ function boardToNums(){
 }
 
 function rleEncode(arr){
-  let out=[];
-  let cnt=0;
+  let out = [];
+  let count = 0;
 
   for(let i=0;i<arr.length;i++){
-    if(arr[i]===0){
-      cnt++;
+    if(arr[i] === 0){
+      count++;
     }else{
-      if(cnt>0){
-        out.push('z' + cnt.toString(36));
-        cnt=0;
+      if(count > 0){
+        out.push('z' + count.toString(36));
+        count = 0;
       }
       out.push(arr[i].toString(36));
     }
   }
+
+  if(count > 0){
+    out.push('z' + count.toString(36));
+  }
+
+  return out.join('');
+}
 
   if(cnt>0){
     out.push('z' + cnt.toString(36));
@@ -441,6 +448,22 @@ function draw(){
   boardEl.className = 'board turn' + turn;
 }
 
+function rleEncode(nums){
+  let out=[], z=0;
+  for(const n of nums){
+    if(n===0){
+      z++;
+    }else{
+      if(z){
+        out.push('z'+z.toString(36));
+        z=0;
+      }
+      out.push(n.toString(36));
+    }
+  }
+  if(z) out.push('z'+z.toString(36));
+  return out.join('.');
+}
 
 /*保存機能*/
 function exportCode(){

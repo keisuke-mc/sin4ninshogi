@@ -454,6 +454,27 @@ function exportCode(){
   navigator.clipboard.writeText(code);
 }
 
+function importCode(code){
+  try{
+    code = code.trim();   // ← 超重要
+
+    const [head, body] = code.split('|');
+    if(!head || !body) throw 'format';
+
+    turn = parseInt(head[0],36);
+    alive = head.slice(1,5).split('').map(v=>v==='1');
+
+    const nums = rleDecode(body);
+    if(nums.length !== N*N) throw 'size';
+
+    numsToBoard(nums);
+    draw();
+  }catch(e){
+    console.error(e);
+    alert('盤面データの復元に失敗したで');
+  }
+}
+
 /*復元ボタン用*/
 function saveCode(){
   const code = exportCode();

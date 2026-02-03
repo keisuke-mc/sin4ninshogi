@@ -146,17 +146,13 @@ function boardToNums(){
 
 function rleDecode(s){
   const arr=[];
-  const parts = s.split('.').filter(v=>v); // ← 超重要
-
+  const parts = s.split('.');
   for(const p of parts){
     if(p[0]==='z'){
       const n = parseInt(p.slice(1),36);
-      if(!Number.isFinite(n)) throw new Error('bad z');
       arr.push(...Array(n).fill(0));
     }else{
-      const v = parseInt(p,36);
-      if(!Number.isFinite(v)) throw new Error('bad num');
-      arr.push(v);
+      arr.push(parseInt(p,36));
     }
   }
   return arr;
@@ -451,24 +447,57 @@ function exportCode(){
 
 /*復元機能*/
 function importCode(code){
-  try{
-    const [head,body]=code.split('|');
-    if(!head || !body) throw 0;
+  console.log('raw code:', code);
 
-    turn = parseInt(head[0],36);
-    alive = head.slice(1).split('').map(v=>v==='1');
-
-    const nums = rleDecode(body);
-    if(nums.length !== N*N) throw 1;
-
-    numsToBoard(nums);
-
-    hands=[[],[],[],[]];
-    sel=null; selHand=null; marks=[]; history=[];
-    draw();
-  }catch{
-    alert('コードが壊れてるで');
+  const parts = code.trim().split('|');
+  if(parts.length !== 2){
+    alert('区切り | が不正やで');
+    return;
   }
+
+  const [head, body] = parts;
+
+  if(head.length < 5){
+    alert('ヘッダが短すぎるで');
+    return;
+  }
+
+  const t = parseInt(head[0],36);
+  if(isNaN(t) || t<0 || t>3){
+    alert('手番がおかしいで');
+    return;
+  }
+
+  const al = head.slice(1,5).split('').map(v=>v==='1');
+  if(al.length !== 4){
+    alert('alive情報がおかしいで');
+    return;
+  }
+
+  let nums;
+  try{
+    nums = rleDecode(body);
+  }catch(e){
+    alert('盤面データの復元に失敗したで');
+    console.error(e);
+    return;
+  }
+
+  if(nums.length !== N*N){
+    alert(`盤面サイズが合わへんで（${nums.length}）`);
+    return;
+  }
+
+  // 問題なければ反映
+  turn = t;
+  alive = al;
+  numsToBoard(nums);
+
+  hands=[[],[],[],[]];
+  sel=null; selHand=null; marks=[]; history=[];
+  draw();
+
+  alert('復元成功やで');
 }
 
 /*復元ボタン用*/

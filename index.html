@@ -292,13 +292,17 @@ function clickCell(r,c){
       let cap=board[r][c];
       board[r][c]=p; board[sel.r][sel.c]=null;
 
-      // ★ 打った駒は「動いたら普通の駒」に戻す
-      if(p.dropped){
-        delete p.dropped;
+      /* ★ 成り判定（先！） */
+      if(
+        promoteMap[p.t] &&
+        inEnemyCamp(p.o,r,c) &&
+        p.dropped
+      ){
+        if(confirm('成る？')) p.t = promoteMap[p.t];
       }
-          // ★ 打った駒が「次に動いた」判定
+
+      /* ★ 次に dropped を消す */
       if(p.dropped){
-        p.movedAfterDrop = true;
         delete p.dropped;
       }
       
@@ -310,7 +314,7 @@ function clickCell(r,c){
       if(
         promoteMap[p.t] &&
         inEnemyCamp(p.o,r,c) &&
-        !p.dropped
+        (!p.dropped || p.movedAfterDrop)
       ){
         if(confirm('成る？')) p.t = promoteMap[p.t];
       }

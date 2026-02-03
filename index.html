@@ -418,6 +418,24 @@ function draw(){
   boardEl.className = 'board turn' + turn;
 }
 
+/*なんかの前*/
+function rleEncode(nums){
+  let out='', z=0;
+  for(const n of nums){
+    if(n===0){
+      z++;
+    }else{
+      if(z){
+        out += 'z' + z.toString(36);
+        z = 0;
+      }
+      out += n.toString(36);
+    }
+  }
+  if(z) out += 'z' + z.toString(36);
+  return out;
+}
+
 /*保存機能*/
 function exportCode(){
   const head =

@@ -126,6 +126,52 @@ const back=['香','桂','銀','金','王','金','銀','桂','香'];
 const promoteMap={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
 const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
 
+const PIECE_CODE = {
+  '歩':1,'香':2,'桂':3,'銀':4,'金':5,'王':6,'角':7,'飛':8,
+  'と':9,'杏':10,'圭':11,'全':12,'馬':13,'龍':14
+};
+const CODE_PIECE = Object.fromEntries(
+  Object.entries(PIECE_CODE).map(([k,v])=>[v,k])
+);
+
+function boardToNums(){
+  const arr=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const p=board[r][c];
+    if(!p) arr.push(0);
+    else arr.push(PIECE_CODE[p.t]*4 + p.o);
+  }
+  return arr;
+}
+
+function rleDecode(s){
+  const arr=[];
+  for(let i=0;i<s.length;i++){
+    if(s[i]==='z'){
+      let n='';
+      while(/[0-9a-z]/.test(s[i+1])) n+=s[++i];
+      arr.push(...Array(parseInt(n,36)).fill(0));
+    }else{
+      arr.push(parseInt(s[i],36));
+    }
+  }
+  return arr;
+}
+
+function numsToBoard(nums){
+  board=[...Array(N)].map(()=>Array(N).fill(null));
+  let i=0;
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const v=nums[i++];
+    if(v){
+      board[r][c]={
+        t: CODE_PIECE[Math.floor(v/4)],
+        o: v%4
+      };
+    }
+  }
+}
+
 function save(){
   history.push(JSON.stringify({board,hands,alive,turn}));
 }
@@ -374,38 +420,30 @@ function draw(){
 
 /*保存機能*/
 function exportCode(){
-  const data = {
-    board,
-    hands,
-    alive,
-    turn
-  };
-  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  const head =
+    turn.toString(36) +
+    alive.map(v=>v?1:0).join('');
+  const body = rleEncode(boardToNums());
+  return head + '|' + body;
 }
 
 /*復元機能*/
 function importCode(code){
   try{
-    const data = JSON.parse(
-      decodeURIComponent(escape(atob(code)))
-    );
+    const [head,body]=code.split('|');
 
-    board = data.board;
-    hands = data.hands;
-    alive = data.alive;
-    turn  = data.turn;
+    turn = parseInt(head[0],36);
+    alive = head.slice(1).split('').map(v=>v==='1');
 
-    sel = null;
-    selHand = null;
-    marks = [];
-    history = [];
+    numsToBoard(rleDecode(body));
 
+    hands=[[],[],[],[]];
+    sel=null; selHand=null; marks=[]; history=[];
     draw();
-  }catch(e){
+  }catch{
     alert('コードが壊れてるで');
   }
 }
-
 
 /*復元ボタン用*/
 function saveCode(){

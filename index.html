@@ -229,8 +229,20 @@ function genMoves(p,r,c){
     [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
      [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
     .forEach(v=>add(v[0],v[1],true));
-  if(p.t==='龍'||p.t==='馬') [F,B,L,R].forEach(v=>add(v[0],v[1]));
-  return res;
+  // 龍：斜め1マス
+  if(p.t==='龍'){
+  [
+        [F[0]+L[0],F[1]+L[1]],
+      [F[0]+R[0],F[1]+R[1]],
+      [B[0]+L[0],B[1]+L[1]],
+      [B[0]+R[0],B[1]+R[1]]
+    ].forEach(v=>add(v[0],v[1]));
+  }
+
+  // 馬：縦横1マス
+  if(p.t==='馬'){
+    [F,B,L,R].forEach(v=>add(v[0],v[1]));
+  }  return res;
 }
 
 /* ===== 王手判定（攻撃側限定） ===== */

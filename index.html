@@ -126,75 +126,6 @@ const back=['香','桂','銀','金','王','金','銀','桂','香'];
 const promoteMap={歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
 const unpromote={と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
 
-const PIECE_CODE = {
-  '歩':1,'香':2,'桂':3,'銀':4,'金':5,'王':6,'角':7,'飛':8,
-  'と':9,'杏':10,'圭':11,'全':12,'馬':13,'龍':14
-};
-const CODE_PIECE = Object.fromEntries(
-  Object.entries(PIECE_CODE).map(([k,v])=>[v,k])
-);
-
-function boardToNums(){
-  const arr=[];
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    const p=board[r][c];
-    if(!p) arr.push(0);
-    else arr.push(PIECE_CODE[p.t]*4 + p.o);
-  }
-  return arr;
-}
-
-function rleEncode(nums){
-  let out = [];
-  let z = 0;
-
-  for(const n of nums){
-    if(n === 0){
-      z++;
-    }else{
-      if(z > 0){
-        out.push('z' + z.toString(36));
-        z = 0;
-      }
-      out.push(n.toString(36));
-    }
-  }
-
-  if(z > 0){
-    out.push('z' + z.toString(36));
-  }
-
-  return out.join('.');
-}
-
-function rleDecode(s){
-  const arr = [];
-  const parts = s.split('.');
-  for(const p of parts){
-    if(p[0] === 'z'){
-      const n = parseInt(p.slice(1),36);
-      arr.push(...Array(n).fill(0));
-    }else{
-      arr.push(parseInt(p,36));
-    }
-  }
-  return arr;
-}
-
-function numsToBoard(nums){
-  board=[...Array(N)].map(()=>Array(N).fill(null));
-  let i=0;
-  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
-    const v=nums[i++];
-    if(v){
-      board[r][c]={
-        t: CODE_PIECE[Math.floor(v/4)],
-        o: v%4
-      };
-    }
-  }
-}
-
 function save(){
   history.push(JSON.stringify({board,hands,alive,turn}));
 }
@@ -345,11 +276,9 @@ function clickCell(r,c){
   if(sel){
     if(marks.some(m=>m[0]===r&&m[1]===c)){
       save();
-      let p = board[sel.r][sel.c];
-      let cap = board[r][c];
-
-      board[r][c] = { t:p.t, o:p.o };
-      board[sel.r][sel.c] = null;
+      let p=board[sel.r][sel.c];
+      let cap=board[r][c];
+      board[r][c]=p; board[sel.r][sel.c]=null;
 
       if(cap){
         if(cap.t==='王'){ alive[cap.o]=false; checkWin(); }
@@ -443,45 +372,40 @@ function draw(){
   boardEl.className = 'board turn' + turn;
 }
 
-
 /*保存機能*/
 function exportCode(){
-  try{
-    const data = {
-      board,
-      hands,
-      alive,
-      turn
-    };
-    const json = JSON.stringify(data);
-    console.log('json:', json);
-    return btoa(unescape(encodeURIComponent(json)));
-  }catch(e){
-    console.error(e);
-    return undefined;
-  }
+  const data = {
+    board,
+    hands,
+    alive,
+    turn
+  };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
 }
 
+/*復元機能*/
 function importCode(code){
   try{
-    code = code.trim();   // ← 超重要
+    const data = JSON.parse(
+      decodeURIComponent(escape(atob(code)))
+    );
 
-    const [head, body] = code.split('|');
-    if(!head || !body) throw 'format';
+    board = data.board;
+    hands = data.hands;
+    alive = data.alive;
+    turn  = data.turn;
 
-    turn = parseInt(head[0],36);
-    alive = head.slice(1,5).split('').map(v=>v==='1');
+    sel = null;
+    selHand = null;
+    marks = [];
+    history = [];
 
-    const nums = rleDecode(body);
-    if(nums.length !== N*N) throw 'size';
-
-    numsToBoard(nums);
     draw();
   }catch(e){
-    console.error(e);
-    alert('盤面データの復元に失敗したで');
+    alert('コードが壊れてるで');
   }
 }
+
 
 /*復元ボタン用*/
 function saveCode(){

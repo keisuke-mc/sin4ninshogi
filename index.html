@@ -411,15 +411,19 @@ function importCode(code){
 function saveCode(){
   const code = exportCode();
 
-  if(navigator.clipboard){
-    navigator.clipboard.writeText(code)
-      .then(()=>{
-        alert('コードをクリップボードにコピーしました。');
-      })
-      .catch(()=>{
-        fallbackCopy(code);
-      });
-  }else{
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(code)
+        .then(()=>{
+          alert('コードをクリップボードにコピーしました。');
+        })
+        .catch(()=>{
+          fallbackCopy(code);
+        });
+    }else{
+      fallbackCopy(code);
+    }
+  }catch{
     fallbackCopy(code);
   }
 }

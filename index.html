@@ -144,41 +144,34 @@ function boardToNums(){
   return arr;
 }
 
-function rleEncode(arr){
+function rleEncode(nums){
   let out = [];
-  let count = 0;
+  let z = 0;
 
-  for(let i=0;i<arr.length;i++){
-    if(arr[i] === 0){
-      count++;
+  for(const n of nums){
+    if(n === 0){
+      z++;
     }else{
-      if(count > 0){
-        out.push('z' + count.toString(36));
-        count = 0;
+      if(z > 0){
+        out.push('z' + z.toString(36));
+        z = 0;
       }
-      out.push(arr[i].toString(36));
+      out.push(n.toString(36));
     }
   }
 
-  if(count > 0){
-    out.push('z' + count.toString(36));
+  if(z > 0){
+    out.push('z' + z.toString(36));
   }
 
-  return out.join('');
+  return out.join('.');
 }
 
-  if(cnt>0){
-    out.push('z' + cnt.toString(36));
-  }
-
-  return out.join('');
-}
-  
 function rleDecode(s){
-  const arr=[];
+  const arr = [];
   const parts = s.split('.');
   for(const p of parts){
-    if(p[0]==='z'){
+    if(p[0] === 'z'){
       const n = parseInt(p.slice(1),36);
       arr.push(...Array(n).fill(0));
     }else{
@@ -448,22 +441,6 @@ function draw(){
   boardEl.className = 'board turn' + turn;
 }
 
-function rleEncode(nums){
-  let out=[], z=0;
-  for(const n of nums){
-    if(n===0){
-      z++;
-    }else{
-      if(z){
-        out.push('z'+z.toString(36));
-        z=0;
-      }
-      out.push(n.toString(36));
-    }
-  }
-  if(z) out.push('z'+z.toString(36));
-  return out.join('.');
-}
 
 /*保存機能*/
 function exportCode(){

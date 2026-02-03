@@ -444,14 +444,20 @@ function draw(){
 
 /*保存機能*/
 function exportCode(){
-  const head =
-    turn.toString(36) +
-    alive.map(v=>v?1:0).join('');
-
-  const body = rleEncode(boardToNums());
-  const code = head + '|' + body;
-
-  navigator.clipboard.writeText(code);
+  try{
+    const data = {
+      board,
+      hands,
+      alive,
+      turn
+    };
+    const json = JSON.stringify(data);
+    console.log('json:', json);
+    return btoa(unescape(encodeURIComponent(json)));
+  }catch(e){
+    console.error(e);
+    return undefined;
+  }
 }
 
 function importCode(code){

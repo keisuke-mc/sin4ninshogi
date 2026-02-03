@@ -447,63 +447,11 @@ function exportCode(){
   const head =
     turn.toString(36) +
     alive.map(v=>v?1:0).join('');
+
   const body = rleEncode(boardToNums());
-  return head + '|' + body;
-}
+  const code = head + '|' + body;
 
-/*復元機能*/
-function importCode(code){
-  console.log('raw code:', code);
-
-  const parts = code.trim().split('|');
-  if(parts.length !== 2){
-    alert('区切り | が不正やで');
-    return;
-  }
-
-  const [head, body] = parts;
-
-  if(head.length < 5){
-    alert('ヘッダが短すぎるで');
-    return;
-  }
-
-  const t = parseInt(head[0],36);
-  if(isNaN(t) || t<0 || t>3){
-    alert('手番がおかしいで');
-    return;
-  }
-
-  const al = head.slice(1,5).split('').map(v=>v==='1');
-  if(al.length !== 4){
-    alert('alive情報がおかしいで');
-    return;
-  }
-
-  let nums;
-  try{
-    nums = rleDecode(body);
-  }catch(e){
-    alert('盤面データの復元に失敗したで');
-    console.error(e);
-    return;
-  }
-
-  if(nums.length !== N*N){
-    alert(`盤面サイズが合わへんで（${nums.length}）`);
-    return;
-  }
-
-  // 問題なければ反映
-  turn = t;
-  alive = al;
-  numsToBoard(nums);
-
-  hands=[[],[],[],[]];
-  sel=null; selHand=null; marks=[]; history=[];
-  draw();
-
-  alert('復元成功やで');
+  navigator.clipboard.writeText(code);
 }
 
 /*復元ボタン用*/

@@ -345,9 +345,11 @@ function clickCell(r,c){
   if(sel){
     if(marks.some(m=>m[0]===r&&m[1]===c)){
       save();
-      let p=board[sel.r][sel.c];
-      let cap=board[r][c];
-      board[r][c]=p; board[sel.r][sel.c]=null;
+      let p = board[sel.r][sel.c];
+      let cap = board[r][c];
+
+      board[r][c] = { t:p.t, o:p.o };
+      board[sel.r][sel.c] = null;
 
       if(cap){
         if(cap.t==='王'){ alive[cap.o]=false; checkWin(); }

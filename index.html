@@ -276,7 +276,7 @@ function clickCell(r,c){
   if(selHand){
     if(marks.some(m=>m[0]===r&&m[1]===c)){
       save();
-      board[r][c]={t:selHand.t,o:turn};
+      board[r][c]={t:selHand.t,o:turn,dropped:true};
       hands[turn].splice(selHand.i,1);
       selHand=null; marks=[];
       if(isCheck(turn)) showCheck();
@@ -297,8 +297,12 @@ function clickCell(r,c){
         else hands[turn].push(unpromote[cap.t]||cap.t);
       }
 
-      if(promoteMap[p.t] && inEnemyCamp(p.o,r,c)){
-        if(confirm('成る？')) p.t=promoteMap[p.t];
+      if(
+        promoteMap[p.t] &&
+        inEnemyCamp(p.o,r,c) &&
+        (!p.dropped || p.movedAfterDrop)
+      ){
+        if(confirm('成る？')) p.t = promoteMap[p.t];
       }
 
       sel=null; marks=[];
@@ -312,6 +316,11 @@ function clickCell(r,c){
   if(p && p.o===turn){
     sel={r,c}; marks=genMoves(p,r,c); draw();
   }
+}
+
+if(p.dropped){
+  p.movedAfterDrop = true;
+  delete p.dropped;
 }
 
 function clickHand(o,i){

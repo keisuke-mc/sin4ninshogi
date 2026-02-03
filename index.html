@@ -146,13 +146,17 @@ function boardToNums(){
 
 function rleDecode(s){
   const arr=[];
-  const parts = s.split('.');
+  const parts = s.split('.').filter(v=>v); // ← 超重要
+
   for(const p of parts){
     if(p[0]==='z'){
       const n = parseInt(p.slice(1),36);
+      if(!Number.isFinite(n)) throw new Error('bad z');
       arr.push(...Array(n).fill(0));
     }else{
-      arr.push(parseInt(p,36));
+      const v = parseInt(p,36);
+      if(!Number.isFinite(v)) throw new Error('bad num');
+      arr.push(v);
     }
   }
   return arr;
@@ -449,11 +453,15 @@ function exportCode(){
 function importCode(code){
   try{
     const [head,body]=code.split('|');
+    if(!head || !body) throw 0;
 
     turn = parseInt(head[0],36);
     alive = head.slice(1).split('').map(v=>v==='1');
 
-    numsToBoard(rleDecode(body));
+    const nums = rleDecode(body);
+    if(nums.length !== N*N) throw 1;
+
+    numsToBoard(nums);
 
     hands=[[],[],[],[]];
     sel=null; selHand=null; marks=[]; history=[];

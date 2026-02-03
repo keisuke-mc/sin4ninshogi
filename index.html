@@ -310,7 +310,7 @@ function clickCell(r,c){
       if(
         promoteMap[p.t] &&
         inEnemyCamp(p.o,r,c) &&
-        (!p.dropped || p.movedAfterDrop)
+        !p.dropped
       ){
         if(confirm('成る？')) p.t = promoteMap[p.t];
       }

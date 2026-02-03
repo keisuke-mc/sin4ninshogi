@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋(八王子四人将棋)</title>
+<title>真・四人将棋</title>
 <link rel="icon" href="favicon.ico?v=1">
 <link rel="stylesheet" href="piece.css">
 <link rel="stylesheet" href="hikari.css">
@@ -89,7 +89,7 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 </head>
 <body>
 
-<h1>真・四人将棋(八王子四人将棋)</h1>
+<h1>真・四人将棋</h1>
 <div>
   <span id="turn"></span>
   <button onclick="undo()">待った</button>
@@ -411,19 +411,15 @@ function importCode(code){
 function saveCode(){
   const code = exportCode();
 
-  try{
-    if(navigator.clipboard && window.isSecureContext){
-      navigator.clipboard.writeText(code)
-        .then(()=>{
-          alert('コードをクリップボードにコピーしました。');
-        })
-        .catch(()=>{
-          fallbackCopy(code);
-        });
-    }else{
-      fallbackCopy(code);
-    }
-  }catch{
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(code)
+      .then(()=>{
+        alert('コードをクリップボードにコピーしました。');
+      })
+      .catch(()=>{
+        fallbackCopy(code);
+      });
+  }else{
     fallbackCopy(code);
   }
 }
@@ -432,15 +428,14 @@ function fallbackCopy(text){
   const ta = document.createElement('textarea');
   ta.value = text;
   ta.style.position = 'fixed';
-  ta.style.left = '-9999px';
-  ta.setAttribute('readonly', '');
+  ta.style.opacity = '0';
   document.body.appendChild(ta);
   ta.select();
-  ta.setSelectionRange(0, ta.value.length);
   document.execCommand('copy');
   document.body.removeChild(ta);
   alert('コードをコピーしました');
 }
+
 function loadCode(){
   const code = prompt('保存したコードを貼り付けててください。');
   if(code) importCode(code.trim());

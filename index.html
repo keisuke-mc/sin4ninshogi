@@ -146,13 +146,13 @@ function boardToNums(){
 
 function rleDecode(s){
   const arr=[];
-  for(let i=0;i<s.length;i++){
-    if(s[i]==='z'){
-      let n='';
-      while(/[0-9a-z]/.test(s[i+1])) n+=s[++i];
-      arr.push(...Array(parseInt(n,36)).fill(0));
+  const parts = s.split('.');
+  for(const p of parts){
+    if(p[0]==='z'){
+      const n = parseInt(p.slice(1),36);
+      arr.push(...Array(n).fill(0));
     }else{
-      arr.push(parseInt(s[i],36));
+      arr.push(parseInt(p,36));
     }
   }
   return arr;
@@ -420,20 +420,20 @@ function draw(){
 
 /*なんかの前*/
 function rleEncode(nums){
-  let out='', z=0;
+  let out=[], z=0;
   for(const n of nums){
     if(n===0){
       z++;
     }else{
       if(z){
-        out += 'z' + z.toString(36);
-        z = 0;
+        out.push('z'+z.toString(36));
+        z=0;
       }
-      out += n.toString(36);
+      out.push(n.toString(36));
     }
   }
-  if(z) out += 'z' + z.toString(36);
-  return out;
+  if(z) out.push('z'+z.toString(36));
+  return out.join('.');
 }
 
 /*保存機能*/

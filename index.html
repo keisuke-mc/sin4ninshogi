@@ -97,6 +97,11 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 </div>
 
 <div style="margin:6px 0">
+  <label><input type="checkbox" id="mythToggle" checked onchange="mythMode=this.checked"> 神話機能</label>
+  <label><input type="checkbox" id="vassalToggle" checked onchange="vassalMode=this.checked"> 家来機能</label>
+</div>
+
+<div style="margin:6px 0">
   <button onclick="saveCode()">コード保存</button>
   <button onclick="loadCode()">コード復元</button>
 </div>

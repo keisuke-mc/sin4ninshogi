@@ -124,6 +124,18 @@ const handsEl=[hand0,hand1,hand2,hand3];
 const checkMsg=document.getElementById('checkMsg');
 
 let board,hands,alive,turn;
+let mythMode = true;   // 神話機能（王→神）
+let vassalMode = true; // 家来機能（王を取ると家）
+
+/* 神の判定 */
+function isGod(p){
+  return p.t === '神';
+}
+
+function isAngel(p){
+  return p.t === '天';
+}
+
 let sel=null, selHand=null, marks=[];
 let history=[];
 

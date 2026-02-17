@@ -217,32 +217,37 @@ function genMoves(p,r,c){
       nr+=dr; nc+=dc;
     }
   };
+
   if(p.t==='歩') add(...F);
   if(p.t==='香') add(...F,true);
+
   if(p.t==='桂'){
     add(F[0]*2+L[0],F[1]*2+L[1]);
     add(F[0]*2+R[0],F[1]*2+R[1]);
   }
+
   if(p.t==='銀'){
     [F,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
      [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
      .forEach(v=>add(v[0],v[1]));
   }
+
   if('金と杏圭全'.includes(p.t)){
     [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]]
     .forEach(v=>add(v[0],v[1]));
   }
-  if(p.t==='王'){
+
+  if(p.t==='王'||p.t==='家'){
     [
-      F, B, L, R,
+      F,B,L,R,
       [F[0]+L[0],F[1]+L[1]],
       [F[0]+R[0],F[1]+R[1]],
       [B[0]+L[0],B[1]+L[1]],
       [B[0]+R[0],B[1]+R[1]]
     ].forEach(v=>add(v[0],v[1]));
   }
-  
-  /* ★ 神 */
+
+  /* 神：王 + クイーン */
   if(p.t==='神'){
     // 全方向1マス
     [
@@ -253,56 +258,53 @@ function genMoves(p,r,c){
       [B[0]+R[0],B[1]+R[1]]
     ].forEach(v=>add(v[0],v[1]));
 
-    // 左右斜め無限
-    [[F[0]+L[0],F[1]+L[1]],
-     [F[0]+R[0],F[1]+R[1]]]
-    .forEach(v=>add(v[0],v[1],true));
-  }  
+    // 縦横無限
+    [F,B,L,R].forEach(v=>add(v[0],v[1],true));
 
-  if(p.t==='家'){
+    // 斜め無限
     [
-      F,B,L,R,
       [F[0]+L[0],F[1]+L[1]],
       [F[0]+R[0],F[1]+R[1]],
       [B[0]+L[0],B[1]+L[1]],
       [B[0]+R[0],B[1]+R[1]]
-    ].forEach(v=>add(v[0],v[1]));
-  }
-  
-  if(p.t==='飛'||p.t==='龍') [F,B,L,R].forEach(v=>add(v[0],v[1],true));
-  if(p.t==='角'||p.t==='馬')
-    [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
-     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
-    .forEach(v=>add(v[0],v[1],true));
-  // 龍：斜め1マス
-  if(p.t==='龍'){
-  [
-        [F[0]+L[0],F[1]+L[1]],
-      [F[0]+R[0],F[1]+R[1]],
-      [B[0]+L[0],B[1]+L[1]],
-      [B[0]+R[0],B[1]+R[1]]
-    ].forEach(v=>add(v[0],v[1]));
+    ].forEach(v=>add(v[0],v[1],true));
   }
 
-  // 馬：縦横1マス
-  if(p.t==='馬'){
-    [F,B,L,R].forEach(v=>add(v[0],v[1]));
-  }  return res;
-
-  /* ★ 天 */
+  /* 天：クイーンのみ */
   if(p.t==='天'){
     // 縦横無限
     [F,B,L,R].forEach(v=>add(v[0],v[1],true));
 
     // 斜め無限
+    [
+      [F[0]+L[0],F[1]+L[1]],
+      [F[0]+R[0],F[1]+R[1]],
+      [B[0]+L[0],B[1]+L[1]],
+      [B[0]+R[0],B[1]+R[1]]
+    ].forEach(v=>add(v[0],v[1],true));
+  }
+
+  if(p.t==='飛'||p.t==='龍') [F,B,L,R].forEach(v=>add(v[0],v[1],true));
+
+  if(p.t==='角'||p.t==='馬')
+    [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]]
+    .forEach(v=>add(v[0],v[1],true));
+
+  if(p.t==='龍'){
     [[F[0]+L[0],F[1]+L[1]],
      [F[0]+R[0],F[1]+R[1]],
      [B[0]+L[0],B[1]+L[1]],
      [B[0]+R[0],B[1]+R[1]]]
-    .forEach(v=>add(v[0],v[1],true));
+    .forEach(v=>add(v[0],v[1]));
   }
-}
 
+  if(p.t==='馬'){
+    [F,B,L,R].forEach(v=>add(v[0],v[1]));
+  }
+
+  return res;
+}
 
 /* ===== 王手判定（攻撃側限定） ===== */
 function isCheck(attacker){
@@ -351,9 +353,18 @@ function clickCell(r,c){
       let cap=board[r][c];
       board[r][c]=p; board[sel.r][sel.c]=null;
 
-      /* ★ 王が敵陣で神になる */
+      /* 王→神 */
       if(mythMode && p.t==='王' && inEnemyCamp(p.o,r,c)){
-        p.t='神';
+        if(confirm('神になりますか？')){
+          p.t='神';
+        }
+      }
+
+      /* 家→天 */
+      if(mythMode && p.t==='家' && inEnemyCamp(p.o,r,c)){
+        if(confirm('天になりますか？')){
+          p.t='天';
+        }
       }
 
       /* ★ 家が敵陣で天になる */

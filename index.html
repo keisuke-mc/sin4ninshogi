@@ -387,28 +387,35 @@ function clickCell(r,c){
       }
       
       if(cap){
-        // 神を取られたら脱落
+
+        // 神を取ったら脱落 + 家
         if(cap.t==='神'){
           alive[cap.o]=false;
           checkWin();
-       
-          
-          // 家来機能ONなら家ももらえる
-          if(vassalMode){
-            hands[turn].push('家');
-          }
-        } 
-        // 王を取ったら
-        else if(cap.t==='王'){
-          // 王は必ず脱落
-          alive[cap.o]=false;
-          checkWin();
 
-          // 家来機能ONなら家ももらえる
           if(vassalMode){
             hands[turn].push('家');
           }
         }
+
+        // 王を取ったら脱落 + 家
+        else if(cap.t==='王'){
+          alive[cap.o]=false;
+          checkWin();
+
+          if(vassalMode){
+            hands[turn].push('家');
+          }
+        }
+
+        // ★ 天を取ったら家になる
+        else if(cap.t==='天'){
+          if(vassalMode){
+            hands[turn].push('家');
+          }
+        }
+
+        // その他の駒
         else{
           hands[turn].push(unpromote[cap.t]||cap.t);
         }

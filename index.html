@@ -391,6 +391,8 @@ function clickCell(r,c){
         if(cap.t==='神'){
           alive[cap.o]=false;
           checkWin();
+       
+          
           // 家来機能ONなら家ももらえる
           if(vassalMode){
             hands[turn].push('家');

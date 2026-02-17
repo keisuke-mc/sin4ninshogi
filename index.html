@@ -352,8 +352,23 @@ function clickCell(r,c){
       }
       
       if(cap){
-        if(cap.t==='王'){ alive[cap.o]=false; checkWin(); }
-        else hands[turn].push(unpromote[cap.t]||cap.t);
+        // 神を取られたら脱落
+        if(cap.t==='神'){
+          alive[cap.o]=false;
+          checkWin();
+        }
+        // 王を取ったら
+        else if(cap.t==='王'){
+          if(vassalMode){
+            hands[turn].push('家');
+          }else{
+            alive[cap.o]=false;
+            checkWin();
+          }
+        }
+        else{
+          hands[turn].push(unpromote[cap.t]||cap.t);
+        }
       }
 
       if(

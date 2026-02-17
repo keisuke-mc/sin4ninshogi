@@ -383,11 +383,13 @@ function clickCell(r,c){
         }
         // 王を取ったら
         else if(cap.t==='王'){
+          // 王は必ず脱落
+          alive[cap.o]=false;
+          checkWin();
+
+          // 家来機能ONなら家ももらえる
           if(vassalMode){
             hands[turn].push('家');
-          }else{
-            alive[cap.o]=false;
-            checkWin();
           }
         }
         else{

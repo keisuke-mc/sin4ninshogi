@@ -309,6 +309,16 @@ function clickCell(r,c){
       let cap=board[r][c];
       board[r][c]=p; board[sel.r][sel.c]=null;
 
+      /* ★ 王が敵陣で神になる */
+      if(mythMode && p.t==='王' && inEnemyCamp(p.o,r,c)){
+        p.t='神';
+      }
+
+      /* ★ 家が敵陣で天になる */
+      if(mythMode && p.t==='家' && inEnemyCamp(p.o,r,c)){
+        p.t='天';
+    
+      
       /* ★ 成り判定（先！） */
       if(
         promoteMap[p.t] &&

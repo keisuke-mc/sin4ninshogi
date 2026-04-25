@@ -1,1 +1,201 @@
-<html></html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>遊び方 - 真・四人将棋</title>
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="stylesheet" href="piece.css">
+<link rel="stylesheet" href="hikari.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --cell:40px;
+  --wood:#f4d9a6;
+  --wood2:#e2b36d;
+  --bg:#d9932a;
+  --frame:#c6862c;
+}
+
+body{
+  margin:0;
+  padding:20px;
+  background:var(--bg);
+  font-family:sans-serif;
+}
+
+.container{
+  max-width:900px;
+  margin:auto;
+  background:var(--wood);
+  border:6px solid var(--frame);
+  border-radius:10px;
+  padding:20px;
+}
+
+h1{
+  margin-top:0;
+  text-align:center;
+}
+
+h2{
+  border-bottom:2px solid var(--frame);
+  padding-bottom:4px;
+  margin-top:24px;
+}
+
+h3{
+  margin-top:16px;
+}
+
+p, li{
+  line-height:1.7;
+}
+
+ul{
+  padding-left:20px;
+}
+
+.note{
+  background:#fff7e0;
+  border-left:6px solid var(--frame);
+  padding:10px;
+  margin:10px 0;
+}
+
+button{
+  display:block;
+  margin:30px auto 0;
+  padding:10px 20px;
+  font-size:16px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:#fff7e0;
+  cursor:pointer;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="container">
+<h1>真・四人将棋 遊び方</h1>
+<h2>ゲームの概要</h2>
+<p>
+4人で戦う将棋やで。<br>
+順番に駒を動かして、最後まで生き残ったプレイヤーが勝ちや。
+</p>
+<ul>
+<li>P1 → P2 → P3 → P4 の順番で進行</li>
+<li>自分の番で1手だけ動かせる</li>
+<li>脱落したプレイヤーはその後操作できへん</li>
+</ul>
+<div class="note">
+💡 普通の将棋と違って「挟まれる」「横から攻撃される」からかなりカオスやで
+</div>
+<h2>勝利条件</h2>
+<ul>
+<li>他のプレイヤー全員を脱落させる</li>
+<li>最後の1人になれば勝ち</li>
+</ul>
+<h2>脱落条件</h2>
+<ul>
+<li>王を取られる → 即脱落</li>
+<li>神を取られる → 即脱落</li>
+</ul>
+<h2>駒の基本ルール</h2>
+<p>
+基本の動きは普通の将棋と同じや。
+</p>
+<ul>
+<li>歩：前に1マス</li>
+<li>飛：縦横無限</li>
+<li>角：斜め無限</li>
+<li>金：前・横・後ろ</li>
+<li>銀：斜め中心</li>
+<li>桂：ジャンプ移動</li>
+<li>香：前に無限</li>
+</ul>
+<h2>持ち駒（ドロップ）</h2>
+<p>
+相手の駒を取ると、自分の持ち駒になるで。
+</p>
+<ul>
+<li>空いてるマスに自由に打てる</li>
+<li>歩は同じ列に2枚置けない（二歩禁止）</li>
+</ul>
+<h2>成り（進化）</h2>
+<p>
+敵陣に入ると駒は成ることができるで。
+</p>
+<ul>
+<li>移動時に確認ダイアログが出る</li>
+<li>一部の駒だけ成れる（歩→と など）</li>
+</ul>
+<ul>
+<li>移動時に確認ダイアログが出る</li>
+<li>一部の駒だけ成れる（歩→と など）</li>
+</ul>
+<h2>神話機能（ONの場合）</h2>
+<h3>神（王の進化）</h3>
+<ul>
+<li>王が敵陣に入ると選択で「神」になる</li>
+<li>超強力な駒</li>
+</ul>
+<ul>
+<li>全方向1マス</li>
+<li>縦横 無限移動</li>
+<li>斜め 無限移動</li>
+</ul>
+<div class="note">
+⚠ 神を取られると即脱落やから、調子乗りすぎたら終わるで
+</div>
+<h3>天（家の進化）</h3>
+<ul>
+<li>家が敵陣に入ると「天」になる</li>
+</ul>
+<ul>
+<li>縦横 無限移動</li>
+<li>斜め 無限移動</li>
+</ul>
+<div class="note">
+💡 天はクイーンみたいな性能や
+</div>
+<h2>家来機能（ONの場合）</h2>
+<ul>
+<li>王を取る → 「家」が手に入る</li>
+<li>神・天を取る → 「家」が手に入る</li>
+</ul>
+<p>
+この「家」は特殊な駒や。
+</p>
+<ul>
+<li>動きは王と同じ（全方向1マス）</li>
+<li>敵陣に入ると「天」に進化できる</li>
+</ul>
+<h2>戦略のコツ</h2>
+<ul>
+<li>序盤は無理に攻めすぎない</li>
+<li>2人以上を敵に回さない</li>
+<li>神になったら一気に制圧もアリ</li>
+<li>でも囲まれると一瞬で終わる</li>
+</ul>
+<div class="note">
+🔥 このゲームは「強さ」より「立ち回り」が大事やで
+</div>
+<h2>操作方法</h2>
+<ul>
+<li>駒をクリック → 移動先が表示される</li>
+<li>もう一度クリックで移動</li>
+<li>持ち駒クリック → 盤に配置</li>
+<li>同じ駒をもう一度押すとキャンセル</li>
+</ul>
+<h2>その他機能</h2>
+<ul>
+<li>待った（Undo）あり</li>
+<li>コード保存・復元あり</li>
+<li>神話・家来機能のON/OFF切替</li>
+</ul>
+<button onclick="location.href='index.html'">
+← 四人将棋に戻る
+</button>
+</div>
+</body>
+</html>

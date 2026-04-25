@@ -1,0 +1,16 @@
+.back-btn{
+  display:block;
+  width:fit-content;
+  margin:30px auto 0;
+  padding:10px 20px;
+  font-size:16px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:#fff7e0;
+  text-decoration:none;
+  color:black;
+  text-align:center;
+}
+.back-btn:hover{
+  opacity:0.8;
+}

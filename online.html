@@ -372,6 +372,7 @@ let roomId    = null;   // 現在のルームID
 let myPlayer  = null;   // 0〜3。null = オフライン
 let isHost    = false;
 let isOnline  = false;
+let localMoving = false; // 自分が操作中はFirebaseリスナーの割り込みをブロック
 let roomRef   = null;
 let stateRef  = null;
 let roomListener  = null;
@@ -708,6 +709,7 @@ function listenRoom(){
 
   /* 盤面状態（手が指されたとき） */
   stateListener = stateRef.on('value', snap => {
+    if(localMoving) return; // 自分の手を処理中は無視
     const raw = snap.val();
     if(!raw) return;
     const d = JSON.parse(raw);
@@ -756,7 +758,10 @@ async function leaveRoom(){
    ============================================================ */
 function pushState(){
   if(!isOnline || !stateRef) return;
-  stateRef.set(makeStateJson());
+  localMoving = true;
+  stateRef.set(makeStateJson()).then(() => {
+    localMoving = false;
+  });
 }
 
 function makeStateJson(){
@@ -1068,6 +1073,18 @@ function viewToBoard(vr, vc){
    ============================================================ */
 function draw(){
   boardEl.innerHTML='';
+
+  // 視点に応じた駒の回転補正
+  // myPlayer=0:+180°, 1:+90°, 2:+0°, 3:+270°
+  const viewComp  = (isOnline && myPlayer !== null) ? [180,90,0,270][myPlayer] : 0;
+  // 駒オーナーごとの基本回転角: p0=180°, p1=270°, p2=0°, p3=90°
+  const baseRots  = [180, 270, 0, 90];
+
+  // 手番バー: 視点ずれ分オフセット
+  // myPlayer=0:+2, 1:+1, 2:+0, 3:+3
+  const turnOffset = (isOnline && myPlayer !== null) ? [2,1,0,3][myPlayer] : 0;
+  const visualTurn = (turn + turnOffset) % 4;
+
   for(let vr=0;vr<N;vr++) for(let vc=0;vc<N;vc++){
     const [r,c] = viewToBoard(vr, vc);
     let d=document.createElement('div');
@@ -1078,7 +1095,9 @@ function draw(){
     if(board[r][c]){
       let s=document.createElement('div');
       s.dataset.piece=board[r][c].t;
-      s.className='piece p'+board[r][c].o;
+      s.className='piece';
+      const finalRot = (baseRots[board[r][c].o] + viewComp) % 360;
+      s.style.transform = `rotate(${finalRot}deg)`;
       d.appendChild(s);
     }
     d.onclick=()=>clickCell(r,c);
@@ -1105,7 +1124,7 @@ function draw(){
     });
   });
 
-  boardEl.className='board turn'+turn;
+  boardEl.className='board turn'+visualTurn;
   updateWaitingBanner();
 }
 

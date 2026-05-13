@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋　オンライン</title>
+<title>真・四人将棋</title>
 <link rel="icon" href="favicon.ico?v=1">
 <link rel="stylesheet" href="piece.css">
 <link rel="stylesheet" href="hikari.css">
@@ -403,7 +403,7 @@ const FIREBASE_CONFIG = {
    ★★★  オフラインページのURL（ここを書き換えてください）  ★★★
    例: const OFFLINE_URL = "https://example.com/offline/";
    ============================================================ */
-const OFFLINE_URL = "https://keisuke-mc.github.io/sin4ninshogi/";
+const OFFLINE_URL = "./offline/index.html";
 
 /* ============================================================
    Firebase 初期化
@@ -900,6 +900,7 @@ function listenRoom(){
     mythMode   = d.mythMode   ?? true;
     vassalMode = d.vassalMode ?? true;
     lastMove   = d.lastMove   ?? null;
+    if(d.names) roomNames = d.names;
     document.getElementById('mythToggle').checked  = mythMode;
     document.getElementById('vassalToggle').checked = vassalMode;
     sel = null; selHand = null; marks = [];
@@ -920,6 +921,10 @@ function listenRoom(){
 }
 async function hostStartGame(){
   if(!isHost || !db) return;
+  // 最新の名前を取得してからstate更新
+  const namesSnap = await db.ref(`rooms/${roomId}/names`).once('value');
+  if(namesSnap.val()) roomNames = namesSnap.val();
+  pushState();
   await roomRef.update({ status: 'playing' });
 }
 
@@ -956,7 +961,7 @@ function pushState(){
 }
 
 function makeStateJson(){
-  return JSON.stringify({ board, hands, alive, turn, mythMode, vassalMode, lastMove });
+  return JSON.stringify({ board, hands, alive, turn, mythMode, vassalMode, lastMove, names: roomNames });
 }
 
 /* ============================================================

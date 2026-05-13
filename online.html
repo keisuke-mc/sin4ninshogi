@@ -312,22 +312,22 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
    「Realtime Database」を有効化 → ウェブアプリを追加 →
    表示された firebaseConfig をここに貼り付けてください
    ============================================================ */
-const firebaseConfig = {
-  apiKey: "AIzaSyBjLEKGCzS20siHjcmqne36hnZfioyfHOA",
-  authDomain: "ninshogi-online.firebaseapp.com",
-  databaseURL: "https://ninshogi-online-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "ninshogi-online",
-  storageBucket: "ninshogi-online.firebasestorage.app",
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyBjLEKGCzS20siHjcmqne36hnZfioyfHOA",
+  authDomain:        "ninshogi-online.firebaseapp.com",
+  databaseURL:       "https://ninshogi-online-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "ninshogi-online",
+  storageBucket:     "ninshogi-online.firebasestorage.app",
   messagingSenderId: "813256730560",
-  appId: "1:813256730560:web:5fe4f447376b49990a0a25",
-  measurementId: "G-FHLZ6R1B2C"
+  appId:             "1:813256730560:web:5fe4f447376b49990a0a25",
+  measurementId:     "G-FHLZ6R1B2C"
 };
 
 /* ============================================================
    ★★★  オフラインページのURL（ここを書き換えてください）  ★★★
    例: const OFFLINE_URL = "https://example.com/offline/";
    ============================================================ */
-const OFFLINE_URL = "https://keisuke-mc.github.io/sin4ninshogi/";
+const OFFLINE_URL = "./offline/index.html";
 
 /* ============================================================
    Firebase 初期化

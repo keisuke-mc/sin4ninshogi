@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>真・四人将棋</title>
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="stylesheet" href="piece.css">
+<link rel="stylesheet" href="hikari.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --cell:40px;
+  --wood:#f4d9a6;
+  --wood2:#e2b36d;
+  --bg:#d9932a;
+  --frame:#c6862c;
+  --sel:#ff0;
+  --move:#8fd3ff;
+}
+body{margin:0;padding:10px;background:var(--bg);font-family:sans-serif}
+h1{margin:4px 0;font-size:18px}
+button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7e0;cursor:pointer}
+
+.layout{
+  display:grid;
+  grid-template-columns:200px auto 200px;
+  grid-template-rows:auto auto;
+  gap:10px;
+}
+.board{
+  grid-column:2;
+  grid-row:1 / span 2;
+  display:grid;
+  grid-template-columns:repeat(15,var(--cell));
+  grid-template-rows:repeat(15,var(--cell));
+  gap:2px;
+  background:var(--frame);
+  padding:6px;
+  border-radius:8px;
+}
+.cell{
+  background:var(--wood);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  cursor:pointer;
+}
+.dark{background:var(--wood2)}
+.wall{background:var(--bg);pointer-events:none}
+.sel{outline:3px solid var(--sel)}
+.move{background:var(--move)!important}
+
+.p0{transform:rotate(180deg)}
+.p1{transform:rotate(270deg)}
+.p2{transform:rotate(0deg)}
+.p3{transform:rotate(90deg)}
+
+.hand{
+  background:#fff3d4;
+  padding:6px;
+  border-radius:6px;
+}
+.hand h3{margin:0 0 6px;font-size:13px;text-align:center}
+.list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.pc{
+  background:#fff;
+  border:1px solid #999;
+  border-radius:4px;
+  padding:4px 6px;
+  cursor:pointer;
+}
+
+/* 王手表示 */
+#checkMsg{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:64px;
+  font-weight:bold;
+  color:red;
+  text-shadow:3px 3px 6px #000;
+  pointer-events:none;
+  z-index:900;
+}
+
+/* 勝利表示 */
+#winOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.75);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1500;
+  flex-direction:column;
+  gap:20px;
+}
+#winOverlay .win-msg{
+  font-size:56px;
+  font-weight:bold;
+  color:#ffd700;
+  text-shadow:0 0 20px #f90, 3px 3px 8px #000;
+}
+#winOverlay button{
+  font-size:18px;
+  padding:12px 28px;
+}
+
+/* =====================
+   ロビーオーバーレイ
+   ===================== */
+#lobby{
+  position:fixed;
+  inset:0;
+  background:rgba(20,10,0,0.9);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:2000;
+}
+
+.lobby-box{
+  background:#fff7e0;
+  border:4px solid #c6862c;
+  border-radius:16px;
+  padding:32px 28px;
+  width:340px;
+  text-align:center;
+  box-shadow:0 8px 40px rgba(0,0,0,0.6);
+  animation:popIn .2s ease;
+}
+@keyframes popIn{
+  from{transform:scale(.88);opacity:0}
+  to  {transform:scale(1);opacity:1}
+}
+
+.lobby-box h2{margin:0 0 6px;font-size:22px;color:#7a4a00}
+.lobby-box>p,.lobby-box .lp{color:#666;margin:0 0 18px;font-size:14px}
+
+.lb-btn{
+  display:block;
+  width:100%;
+  padding:12px;
+  margin:7px 0;
+  font-size:16px;
+  border-radius:8px;
+  border:2px solid #c6862c;
+  background:#fff7e0;
+  cursor:pointer;
+  transition:background .15s, transform .1s;
+}
+.lb-btn:hover:not(:disabled){background:#f4d9a6;transform:translateY(-1px)}
+.lb-btn:disabled{opacity:.4;cursor:default}
+.lb-btn.lb-sub{font-size:13px;border-color:#bbb;background:#f5f5f5;color:#555}
+.lb-btn.lb-primary{background:#e8820a;color:#fff;border-color:#b56000;font-weight:bold}
+.lb-btn.lb-primary:hover:not(:disabled){background:#c86800}
+
+.room-id-display{
+  font-size:36px;
+  font-weight:bold;
+  letter-spacing:6px;
+  color:#7a4a00;
+  background:#ffe8a0;
+  border:2px dashed #c6862c;
+  border-radius:8px;
+  padding:12px;
+  margin:10px 0 4px;
+  cursor:pointer;
+  user-select:all;
+  transition:background .15s;
+}
+.room-id-display:hover{background:#ffd060}
+
+.copy-hint{font-size:11px;color:#999;margin:0 0 14px}
+
+.player-slots{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin:14px 0 8px;
+}
+.player-slot{
+  width:52px;height:52px;
+  border-radius:50%;
+  border:2px solid #ccc;
+  background:#eee;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#888;
+  flex-direction:column;gap:2px;
+  transition:all .25s;
+}
+.player-slot.filled{background:#f4d9a6;border-color:#c6862c;color:#7a4a00;font-weight:bold}
+.player-slot.me{background:#e8820a;border-color:#b56000;color:#fff;font-weight:bold}
+
+.status-msg{font-size:13px;color:#888;margin:6px 0}
+.error-msg{color:#c00;font-size:13px;margin:6px 0;min-height:18px}
+
+.spinner{
+  width:44px;height:44px;
+  border:5px solid #e2b36d;
+  border-top-color:#c6862c;
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+  margin:16px auto;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#roomIdInput{
+  width:100%;
+  padding:12px;
+  font-size:26px;
+  text-align:center;
+  letter-spacing:5px;
+  border:2px solid #c6862c;
+  border-radius:8px;
+  background:#ffe8a0;
+  box-sizing:border-box;
+  margin:8px 0 4px;
+  text-transform:uppercase;
+}
+#roomIdInput:focus{outline:3px solid #e8820a;background:#fff8d0}
+
+hr{border:none;border-top:1px solid #ddd;margin:14px 0}
+
+/* オンライン状態バッジ */
+#onlineBadge{
+  display:inline-block;
+  background:#2a9d2a;
+  color:#fff;
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:10px;
+  margin-left:8px;
+  vertical-align:middle;
+}
+
+/* 操作不可オーバーレイ（自分の番でない時） */
+#waitingBanner{
+  position:fixed;
+  bottom:16px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.7);
+  color:#fff;
+  padding:8px 20px;
+  border-radius:20px;
+  font-size:14px;
+  display:none;
+  z-index:500;
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<h1>真・四人将棋 <span id="onlineBadge" style="display:none">🔌 オンライン</span></h1>
+<div>
+  <span id="turn"></span>
+  <button onclick="undoAction()">待った</button>
+  <button onclick="initAction()">初期化</button>
+  <button onclick="location.href='setumei'">遊び方</button>
+  <button onclick="showLobby('main')" style="margin-left:8px">🌐 オンライン対戦</button>
+</div>
+
+<div style="margin:6px 0">
+  <label><input type="checkbox" id="mythToggle" checked onchange="mythMode=this.checked"> 神話機能</label>
+  <label><input type="checkbox" id="vassalToggle" checked onchange="vassalMode=this.checked"> 家来機能</label>
+</div>
+
+<div style="margin:6px 0">
+  <button onclick="saveCode()">コード保存</button>
+  <button onclick="loadCode()">コード復元</button>
+</div>
+
+<div class="layout">
+  <div class="hand" id="hand0"></div>
+  <div class="hand" id="hand1"></div>
+  <div class="board" id="board"></div>
+  <div class="hand" id="hand3"></div>
+  <div class="hand" id="hand2"></div>
+</div>
+
+<div id="checkMsg">王手！</div>
+
+<!-- 勝利オーバーレイ -->
+<div id="winOverlay">
+  <div class="win-msg" id="winMsg">🏆 P1 の勝ち！</div>
+  <button onclick="document.getElementById('winOverlay').style.display='none';showLobby('main')">ロビーへ戻る</button>
+</div>
+
+<!-- 待機バナー -->
+<div id="waitingBanner">⏳ 相手の手番です...</div>
+
+<!-- ===== ロビーオーバーレイ ===== -->
+<div id="lobby">
+  <div class="lobby-box">
+    <div id="lobbyContent"></div>
+  </div>
+</div>
+
+<!-- Firebase Compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* ============================================================
+   ★★★  Firebase 設定（ここを書き換えてください）  ★★★
+   https://console.firebase.google.com でプロジェクトを作り
+   「Realtime Database」を有効化 → ウェブアプリを追加 →
+   表示された firebaseConfig をここに貼り付けてください
+   ============================================================ */
+const FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId:         "YOUR_PROJECT",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+/* ============================================================
+   ★★★  オフラインページのURL（ここを書き換えてください）  ★★★
+   例: const OFFLINE_URL = "https://example.com/offline/";
+   ============================================================ */
+const OFFLINE_URL = "./offline/index.html";
+
+/* ============================================================
+   Firebase 初期化
+   ============================================================ */
+let db = null;
+(function(){
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+  }catch(e){
+    console.warn('Firebase未設定（オフラインのみ）', e);
+  }
+})();
+
+/* ============================================================
+   ゲーム定数
+   ============================================================ */
+const N = 15;
+const boardEl   = document.getElementById('board');
+const turnEl    = document.getElementById('turn');
+const handsEl   = [hand0, hand1, hand2, hand3];
+const checkMsg  = document.getElementById('checkMsg');
+
+const back       = ['香','桂','銀','金','王','金','銀','桂','香'];
+const promoteMap = {歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
+const unpromote  = {と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
+
+/* ============================================================
+   ゲーム変数
+   ============================================================ */
+let board, hands, alive, turn;
+let mythMode   = true;
+let vassalMode = true;
+let sel = null, selHand = null, marks = [];
+let history = [];
+
+/* ============================================================
+   オンライン変数
+   ============================================================ */
+const myUid = Math.random().toString(36).slice(2, 12);
+let roomId    = null;   // 現在のルームID
+let myPlayer  = null;   // 0〜3。null = オフライン
+let isHost    = false;
+let isOnline  = false;
+let roomRef   = null;
+let stateRef  = null;
+let roomListener  = null;
+let stateListener = null;
+
+/* ============================================================
+   ロビー表示・非表示
+   ============================================================ */
+function showLobby(screen, data){
+  document.getElementById('lobby').style.display = 'flex';
+  renderLobby(screen, data);
+}
+
+function hideLobby(){
+  document.getElementById('lobby').style.display = 'none';
+}
+
+/* ============================================================
+   ロビー画面描画
+   ============================================================ */
+function renderLobby(screen, data){
+  data = data || {};
+  const el = document.getElementById('lobbyContent');
+
+  /* ---------- メインメニュー ---------- */
+  if(screen === 'main'){
+    el.innerHTML = `
+      <h2>🎴 真・四人将棋</h2>
+      <p class="lp">オンライン対戦</p>
+      <button class="lb-btn lb-primary" onclick="goCreateRoom()">🏠 部屋を作る</button>
+      <button class="lb-btn" onclick="renderLobby('joinById')">🔢 ルームIDで参加</button>
+      <button class="lb-btn" onclick="startRandom()">🎲 ランダム対戦</button>
+      <hr>
+      <button class="lb-btn lb-sub" onclick="location.href=OFFLINE_URL">👥 オフライン対戦ページへ</button>
+      ${!db ? '<p style="color:#c00;font-size:12px;margin-top:8px">⚠ Firebase未設定のためオンライン機能は使えません</p>' : ''}
+    `;
+
+  /* ---------- 部屋作成（ID確認） ---------- */
+  }else if(screen === 'createRoom'){
+    const newId = data.roomId || makeRoomId();
+    el.innerHTML = `
+      <h2>🏠 部屋を作る</h2>
+      <p class="lp">このIDを友達に伝えよう</p>
+      <div class="room-id-display" onclick="copyText('${newId}')">${newId}</div>
+      <p class="copy-hint">👆 タップでコピー</p>
+      <button class="lb-btn lb-primary" onclick="createRoom('${newId}')">この部屋を作成する</button>
+      <button class="lb-btn lb-sub" onclick="renderLobby('main')">← 戻る</button>
+    `;
+
+  /* ---------- 待機中（ホスト） ---------- */
+  }else if(screen === 'waiting'){
+    const count = data.count || 1;
+    const slots = [0,1,2,3].map(i => {
+      let cls, label;
+      if(i < count){
+        cls   = (i === myPlayer) ? 'player-slot me' : 'player-slot filled';
+        label = (i === myPlayer) ? `<span>P${i+1}</span><span style="font-size:9px">あなた</span>`
+                                 : `<span>P${i+1}</span>`;
+      }else{
+        cls   = 'player-slot';
+        label = `<span>P${i+1}</span><span style="font-size:9px">待機</span>`;
+      }
+      return `<div class="${cls}">${label}</div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <h2>🏠 待機中</h2>
+      <p class="lp">ルームID</p>
+      <div class="room-id-display" onclick="copyText('${roomId}')">${roomId}</div>
+      <p class="copy-hint">👆 タップでコピー</p>
+      <div class="player-slots">${slots}</div>
+      <p class="status-msg">プレイヤー <strong>${count} / 4</strong></p>
+      ${isHost
+        ? `<button class="lb-btn lb-primary" ${count < 2 ? 'disabled' : ''} onclick="hostStartGame()">
+             🎮 ゲーム開始${count < 2 ? ` (あと${2-count}人)` : ''}
+           </button>`
+        : `<p class="status-msg">ホストがゲームを開始するまでお待ちください</p>`
+      }
+      <button class="lb-btn lb-sub" onclick="leaveRoom();renderLobby('main')">← 退室する</button>
+    `;
+
+  /* ---------- ルームIDで参加 ---------- */
+  }else if(screen === 'joinById'){
+    el.innerHTML = `
+      <h2>🔢 ルームIDで参加</h2>
+      <p class="lp">6桁のルームIDを入力</p>
+      <input id="roomIdInput" placeholder="ABC123" maxlength="6"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')joinById()">
+      <div id="joinError" class="error-msg"></div>
+      <button class="lb-btn lb-primary" onclick="joinById()">参加する</button>
+      <button class="lb-btn lb-sub" onclick="renderLobby('main')">← 戻る</button>
+    `;
+    setTimeout(()=>{ const el=document.getElementById('roomIdInput'); if(el) el.focus(); }, 60);
+
+  /* ---------- ランダムマッチング中 ---------- */
+  }else if(screen === 'matching'){
+    el.innerHTML = `
+      <h2>🎲 マッチング中...</h2>
+      <div class="spinner"></div>
+      <p class="lp">対戦相手を探しています</p>
+      <button class="lb-btn lb-sub" onclick="cancelMatch()">キャンセル</button>
+    `;
+
+  /* ---------- ゲーム開始演出 ---------- */
+  }else if(screen === 'starting'){
+    const pColors = ['#e74c3c','#3498db','#2ecc71','#f39c12'];
+    el.innerHTML = `
+      <h2>🎮 ゲーム開始！</h2>
+      <p class="lp">あなたは</p>
+      <div style="font-size:48px;font-weight:bold;color:${pColors[myPlayer]};margin:8px 0">
+        P${myPlayer+1}
+      </div>
+      <p class="lp">として参加します</p>
+      <div class="spinner"></div>
+    `;
+    setTimeout(hideLobby, 1800);
+  }
+}
+
+/* ============================================================
+   ルームID生成・コピー
+   ============================================================ */
+function makeRoomId(){
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = '';
+  for(let i=0;i<6;i++) id += c[Math.floor(Math.random()*c.length)];
+  return id;
+}
+
+function copyText(text){
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>alert(`「${text}」をコピーしました`));
+  }else{
+    alert(`ルームID: ${text}`);
+  }
+}
+
+/* ============================================================
+   部屋を作る
+   ============================================================ */
+function goCreateRoom(){
+  if(!db){ alert('Firebase設定が必要です\nFIREBASE_CONFIGを書き換えてください'); return; }
+  renderLobby('createRoom', { roomId: makeRoomId() });
+}
+
+async function createRoom(newRoomId){
+  if(!db) return;
+
+  roomId   = newRoomId;
+  myPlayer = 0;
+  isHost   = true;
+  isOnline = true;
+  roomRef  = db.ref(`rooms/${roomId}`);
+  stateRef = db.ref(`rooms/${roomId}/state`);
+
+  // ゲーム初期化（ローカル）
+  board = [...Array(N)].map(()=>Array(N).fill(null));
+  hands = [[],[],[],[]];
+  alive = [true,true,true,true];
+  turn  = 0;
+  history = [];
+  placeInitial();
+  draw();
+
+  // Firebaseに部屋を作成
+  const stateJson = makeStateJson();
+  await roomRef.set({
+    state:       stateJson,
+    players:     { [myUid]: 0 },
+    playerCount: 1,
+    status:      'waiting',
+    hostUid:     myUid,
+    createdAt:   Date.now(),
+    isRandom:    false
+  });
+
+  updateOnlineBadge(true);
+  listenRoom();
+  renderLobby('waiting', { count: 1 });
+}
+
+/* ============================================================
+   ランダムマッチング
+   ============================================================ */
+async function startRandom(){
+  if(!db){ alert('Firebase設定が必要です'); return; }
+  renderLobby('matching');
+
+  try{
+    // status=waiting かつ isRandom=true の部屋を探す
+    const snap = await db.ref('rooms')
+      .orderByChild('status').equalTo('waiting')
+      .once('value');
+
+    let found = null;
+    snap.forEach(child => {
+      const d = child.val();
+      if(d.isRandom && d.playerCount < 4 && d.hostUid !== myUid && !found){
+        found = { id: child.key, data: d };
+      }
+    });
+
+    if(found){
+      await joinRoom(found.id, found.data);
+    }else{
+      // 自分が部屋を作って待つ
+      const newId = makeRoomId();
+      roomId   = newId;
+      myPlayer = 0;
+      isHost   = true;
+      isOnline = true;
+      roomRef  = db.ref(`rooms/${roomId}`);
+      stateRef = db.ref(`rooms/${roomId}/state`);
+
+      board = [...Array(N)].map(()=>Array(N).fill(null));
+      hands = [[],[],[],[]];
+      alive = [true,true,true,true];
+      turn  = 0;
+      history = [];
+      placeInitial();
+      draw();
+
+      const stateJson = makeStateJson();
+      await roomRef.set({
+        state:       stateJson,
+        players:     { [myUid]: 0 },
+        playerCount: 1,
+        status:      'waiting',
+        hostUid:     myUid,
+        createdAt:   Date.now(),
+        isRandom:    true
+      });
+
+      updateOnlineBadge(true);
+      listenRoom();
+      renderLobby('waiting', { count: 1 });
+    }
+  }catch(e){
+    alert('マッチング中にエラーが発生しました: ' + e.message);
+    renderLobby('main');
+  }
+}
+
+function cancelMatch(){
+  leaveRoom();
+  renderLobby('main');
+}
+
+/* ============================================================
+   ルームIDで参加
+   ============================================================ */
+async function joinById(){
+  const input = document.getElementById('roomIdInput');
+  const errEl = document.getElementById('joinError');
+  const id    = (input ? input.value.trim().toUpperCase() : '');
+
+  errEl.textContent = '';
+  if(id.length < 4){ errEl.textContent = 'ルームIDを入力してください'; return; }
+  if(!db){ alert('Firebase設定が必要です'); return; }
+
+  try{
+    const snap = await db.ref(`rooms/${id}`).once('value');
+    const data = snap.val();
+
+    if(!data){              errEl.textContent = '部屋が見つかりません';         return; }
+    if(data.status !== 'waiting'){ errEl.textContent = 'すでにゲームが始まっています'; return; }
+    if(data.playerCount >= 4){     errEl.textContent = '部屋が満員です (4/4)';         return; }
+
+    await joinRoom(id, data);
+  }catch(e){
+    errEl.textContent = 'エラー: ' + e.message;
+  }
+}
+
+/* ============================================================
+   部屋への参加（共通処理）
+   ============================================================ */
+async function joinRoom(id, roomData){
+  roomId   = id;
+  isOnline = true;
+  isHost   = false;
+  roomRef  = db.ref(`rooms/${roomId}`);
+  stateRef = db.ref(`rooms/${roomId}/state`);
+
+  // プレイヤー番号 = 既存参加者数
+  const existingPlayers = roomData.players || {};
+  myPlayer = Object.keys(existingPlayers).length;
+
+  // Firebaseに自分を登録
+  await db.ref(`rooms/${roomId}/players/${myUid}`).set(myPlayer);
+  await db.ref(`rooms/${roomId}/playerCount`).set(myPlayer + 1);
+
+  // 現在の盤面を読み込む
+  const stateSnap = await stateRef.once('value');
+  const d = JSON.parse(stateSnap.val());
+  board = d.board; hands = d.hands; alive = d.alive; turn = d.turn;
+  mythMode   = d.mythMode   ?? true;
+  vassalMode = d.vassalMode ?? true;
+  draw();
+
+  updateOnlineBadge(true);
+  listenRoom();
+  renderLobby('waiting', { count: myPlayer + 1 });
+}
+
+/* ============================================================
+   Firebase リスナー
+   ============================================================ */
+function listenRoom(){
+  // 既存リスナー解除
+  if(roomListener && roomRef)  roomRef.off('value', roomListener);
+  if(stateListener && stateRef) stateRef.off('value', stateListener);
+
+  /* ルーム情報（参加者数・ゲーム開始） */
+  roomListener = roomRef.on('value', snap => {
+    const data = snap.val();
+    if(!data) return;
+
+    const lobbyVisible = document.getElementById('lobby').style.display !== 'none';
+
+    if(data.status === 'waiting' && lobbyVisible){
+      renderLobby('waiting', { count: data.playerCount || 1 });
+    }
+    else if(data.status === 'playing' && lobbyVisible){
+      renderLobby('starting');
+    }
+
+    // 勝者フィールドがあれば勝利表示
+    if(data.winner !== undefined){
+      showWinOverlay(data.winner);
+    }
+  });
+
+  /* 盤面状態（手が指されたとき） */
+  stateListener = stateRef.on('value', snap => {
+    const raw = snap.val();
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    board = d.board; hands = d.hands; alive = d.alive; turn = d.turn;
+    mythMode   = d.mythMode   ?? true;
+    vassalMode = d.vassalMode ?? true;
+    document.getElementById('mythToggle').checked  = mythMode;
+    document.getElementById('vassalToggle').checked = vassalMode;
+    sel = null; selHand = null; marks = [];
+    draw();
+    updateWaitingBanner();
+  });
+}
+
+/* ============================================================
+   ホストがゲーム開始
+   ============================================================ */
+async function hostStartGame(){
+  if(!isHost || !db) return;
+  await roomRef.update({ status: 'playing' });
+}
+
+/* ============================================================
+   退室
+   ============================================================ */
+async function leaveRoom(){
+  try{
+    if(db && roomRef){
+      if(isHost){
+        await roomRef.remove();
+      }else{
+        await db.ref(`rooms/${roomId}/players/${myUid}`).remove();
+      }
+    }
+  }catch(e){ /* 無視 */ }
+  if(stateListener && stateRef)  stateRef.off('value', stateListener);
+  if(roomListener  && roomRef)   roomRef.off('value', roomListener);
+  roomId = null; myPlayer = null; isHost = false; isOnline = false;
+  roomRef = null; stateRef = null; stateListener = null; roomListener = null;
+  updateOnlineBadge(false);
+  updateWaitingBanner();
+}
+
+/* ============================================================
+   状態をFirebaseに送信
+   ============================================================ */
+function pushState(){
+  if(!isOnline || !stateRef) return;
+  stateRef.set(makeStateJson());
+}
+
+function makeStateJson(){
+  return JSON.stringify({ board, hands, alive, turn, mythMode, vassalMode });
+}
+
+/* ============================================================
+   UI ヘルパー
+   ============================================================ */
+function updateOnlineBadge(online){
+  document.getElementById('onlineBadge').style.display = online ? '' : 'none';
+}
+
+function updateWaitingBanner(){
+  const banner = document.getElementById('waitingBanner');
+  if(isOnline && myPlayer !== null && myPlayer !== turn){
+    banner.style.display = 'block';
+  }else{
+    banner.style.display = 'none';
+  }
+}
+
+function showWinOverlay(winner){
+  const el = document.getElementById('winOverlay');
+  document.getElementById('winMsg').textContent = `🏆 P${winner+1} の勝ち！`;
+  el.style.display = 'flex';
+}
+
+/* ============================================================
+   ゲームコア関数
+   ============================================================ */
+function save(){
+  history.push(JSON.stringify({board,hands,alive,turn}));
+}
+
+function undoAction(){
+  if(isOnline){ alert('オンライン対戦中は「待った」できません'); return; }
+  if(!history.length) return;
+  let s = JSON.parse(history.pop());
+  board = s.board; hands = s.hands; alive = s.alive; turn = s.turn;
+  sel = null; selHand = null; marks = [];
+  draw();
+}
+
+function initAction(){
+  if(isOnline && !isHost){ alert('オンライン対戦中はホストのみ初期化できます'); return; }
+  if(!confirm('初期化しますか？\n今の対局データは消えます。')) return;
+  initCore();
+  if(isOnline) pushState();
+}
+
+function initCore(){
+  board = [...Array(N)].map(()=>Array(N).fill(null));
+  hands = [[],[],[],[]];
+  alive = [true,true,true,true];
+  turn  = 0;
+  history = [];
+  placeInitial();
+  draw();
+}
+
+function placeInitial(){
+  const cols=[3,4,5,6,7,8,9,10,11];
+  const rows=[3,4,5,6,7,8,9,10,11];
+  for(let i=0;i<9;i++) board[0][cols[i]]={t:back[i],o:0};
+  board[1][4]={t:'飛',o:0}; board[1][10]={t:'角',o:0};
+  for(let i=0;i<9;i++) board[2][cols[i]]={t:'歩',o:0};
+
+  for(let i=0;i<9;i++) board[rows[i]][14]={t:back[i],o:1};
+  board[4][13]={t:'飛',o:1}; board[10][13]={t:'角',o:1};
+  for(let i=0;i<9;i++) board[rows[i]][12]={t:'歩',o:1};
+
+  for(let i=0;i<9;i++) board[14][cols[8-i]]={t:back[i],o:2};
+  board[13][10]={t:'飛',o:2}; board[13][4]={t:'角',o:2};
+  for(let i=0;i<9;i++) board[12][cols[8-i]]={t:'歩',o:2};
+
+  for(let i=0;i<9;i++) board[rows[8-i]][0]={t:back[i],o:3};
+  board[10][1]={t:'飛',o:3}; board[4][1]={t:'角',o:3};
+  for(let i=0;i<9;i++) board[rows[8-i]][2]={t:'歩',o:3};
+}
+
+function inPlay(r,c){
+  if(r<0||r>=N||c<0||c>=N) return false;
+  if(aliveCount()>2){
+    if(r<3&&c<3)   return false;
+    if(r<3&&c>=12) return false;
+    if(r>=12&&c<3) return false;
+    if(r>=12&&c>=12) return false;
+  }
+  return true;
+}
+
+function dir(o){ return [[1,0],[0,-1],[-1,0],[0,1]][o]; }
+
+function inEnemyCamp(o,r,c){
+  return (o===0&&r>=12)||(o===2&&r<=2)||(o===1&&c<=2)||(o===3&&c>=12);
+}
+
+function genMoves(p,r,c){
+  let res=[];
+  let F=dir(p.o), B=[-F[0],-F[1]], L=[F[1],-F[0]], R=[-F[1],F[0]];
+  const add=(dr,dc,rep=false)=>{
+    let nr=r+dr, nc=c+dc;
+    while(inPlay(nr,nc)){
+      if(board[nr][nc]&&board[nr][nc].o===p.o) break;
+      res.push([nr,nc]);
+      if(board[nr][nc]||!rep) break;
+      nr+=dr; nc+=dc;
+    }
+  };
+
+  if(p.t==='歩') add(...F);
+  if(p.t==='香') add(...F,true);
+  if(p.t==='桂'){ add(F[0]*2+L[0],F[1]*2+L[1]); add(F[0]*2+R[0],F[1]*2+R[1]); }
+  if(p.t==='銀'){
+    [F,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1]));
+  }
+  if('金と杏圭全'.includes(p.t)){
+    [F,L,R,B,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]]].forEach(v=>add(v[0],v[1]));
+  }
+  if(p.t==='王'||p.t==='家'){
+    [F,B,L,R,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1]));
+  }
+  if(p.t==='神'){
+    [F,B,L,R,[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1]));
+    [F,B,L,R].forEach(v=>add(v[0],v[1],true));
+    [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1],true));
+  }
+  if(p.t==='天'){
+    [F,B,L,R].forEach(v=>add(v[0],v[1],true));
+    [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1],true));
+  }
+  if(p.t==='飛'||p.t==='龍') [F,B,L,R].forEach(v=>add(v[0],v[1],true));
+  if(p.t==='角'||p.t==='馬')
+    [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1],true));
+  if(p.t==='龍')
+    [[F[0]+L[0],F[1]+L[1]],[F[0]+R[0],F[1]+R[1]],
+     [B[0]+L[0],B[1]+L[1]],[B[0]+R[0],B[1]+R[1]]].forEach(v=>add(v[0],v[1]));
+  if(p.t==='馬') [F,B,L,R].forEach(v=>add(v[0],v[1]));
+  return res;
+}
+
+function isCheck(attacker){
+  for(let o=0;o<4;o++){
+    if(o===attacker||!alive[o]) continue;
+    let kr,kc;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      let p=board[r][c];
+      if(p&&p.o===o&&p.t==='王'){kr=r;kc=c;}
+    }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      let p=board[r][c];
+      if(p&&p.o===attacker){
+        if(genMoves(p,r,c).some(m=>m[0]===kr&&m[1]===kc)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function showCheck(){
+  checkMsg.style.display='flex';
+  setTimeout(()=>checkMsg.style.display='none', 800);
+}
+
+/* ============================================================
+   クリック処理
+   ============================================================ */
+function clickCell(r,c){
+  if(!inPlay(r,c)) return;
+  // オンライン: 自分の手番でなければ無視
+  if(isOnline && myPlayer !== null && myPlayer !== turn) return;
+
+  if(selHand){
+    if(marks.some(m=>m[0]===r&&m[1]===c)){
+      save();
+      board[r][c]={t:selHand.t, o:turn, dropped:true};
+      hands[turn].splice(selHand.i, 1);
+      selHand=null; marks=[];
+      if(isCheck(turn)) showCheck();
+      nextTurn(); draw(); pushState();
+    }
+    return;
+  }
+
+  if(sel){
+    if(marks.some(m=>m[0]===r&&m[1]===c)){
+      save();
+      let p   = board[sel.r][sel.c];
+      let cap = board[r][c];
+      board[r][c] = p; board[sel.r][sel.c] = null;
+
+      /* 王→神 */
+      if(mythMode && p.t==='王' && inEnemyCamp(p.o,r,c)){
+        if(confirm('神になりますか？')) p.t='神';
+      }
+      /* 家→天 */
+      if(mythMode && p.t==='家' && inEnemyCamp(p.o,r,c)){
+        if(confirm('天使になりますか？')) p.t='天';
+      }
+      /* 成り（打ち駒は成れない） */
+      if(promoteMap[p.t] && inEnemyCamp(p.o,r,c) && p.dropped){
+        if(confirm('成る？')) p.t=promoteMap[p.t];
+      }
+      if(p.dropped) delete p.dropped;
+
+      if(cap){
+        if(cap.t==='神'||cap.t==='王'){
+          alive[cap.o]=false;
+          checkWin();
+          if(vassalMode) hands[turn].push('家');
+        }else if(cap.t==='天'){
+          if(vassalMode) hands[turn].push('家');
+        }else{
+          hands[turn].push(unpromote[cap.t]||cap.t);
+        }
+      }
+
+      /* 成り（通常移動） */
+      if(promoteMap[p.t] && inEnemyCamp(p.o,r,c) && !p.dropped){
+        if(confirm('成る？')) p.t=promoteMap[p.t];
+      }
+
+      sel=null; marks=[];
+      if(isCheck(turn)) showCheck();
+      nextTurn(); draw(); pushState();
+    }else{
+      sel=null; marks=[]; draw();
+    }
+    return;
+  }
+
+  let p=board[r][c];
+  if(p&&p.o===turn){ sel={r,c}; marks=genMoves(p,r,c); draw(); }
+}
+
+function clickHand(o,i){
+  if(o!==turn) return;
+  if(isOnline && myPlayer !== null && myPlayer !== turn) return;
+
+  if(selHand&&selHand.o===o&&selHand.i===i){ selHand=null; marks=[]; draw(); return; }
+
+  let t=hands[o][i];
+  selHand={o,i,t}; marks=[];
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(!inPlay(r,c)||board[r][c]) continue;
+    if(t==='歩'){
+      let ok=true;
+      for(let k=0;k<N;k++){
+        let rr=o%2===0?k:r, cc=o%2===0?c:k;
+        let p=board[rr][cc];
+        if(p&&p.o===o&&p.t==='歩') ok=false;
+      }
+      if(!ok) continue;
+    }
+    marks.push([r,c]);
+  }
+  draw();
+}
+
+function nextTurn(){
+  do{ turn=(turn+1)%4; }while(!alive[turn]);
+}
+
+function checkWin(){
+  const a = alive.filter(v=>v);
+  if(a.length===1){
+    const winner = alive.indexOf(true);
+    if(!isOnline){
+      setTimeout(()=>showWinOverlay(winner), 300);
+    }else{
+      // Firebase経由で全員に通知
+      if(isHost || myPlayer===turn){
+        roomRef && roomRef.update({ winner });
+      }
+    }
+  }
+  draw();
+}
+
+function aliveCount(){ return alive.filter(v=>v).length; }
+
+/* ============================================================
+   描画
+   ============================================================ */
+function draw(){
+  boardEl.innerHTML='';
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    let d=document.createElement('div');
+    if(!inPlay(r,c)){ d.className='cell wall'; boardEl.appendChild(d); continue; }
+    d.className='cell '+((r+c)%2?'dark':'');
+    if(sel&&sel.r===r&&sel.c===c) d.classList.add('sel');
+    if(marks.some(m=>m[0]===r&&m[1]===c)) d.classList.add('move');
+    if(board[r][c]){
+      let s=document.createElement('div');
+      s.dataset.piece=board[r][c].t;
+      s.className='piece p'+board[r][c].o;
+      d.appendChild(s);
+    }
+    d.onclick=()=>clickCell(r,c);
+    boardEl.appendChild(d);
+  }
+
+  let label = '手番：P'+(turn+1);
+  if(isOnline && myPlayer !== null){
+    label += (myPlayer === turn ? '（あなた）' : '（待機中）');
+  }
+  turnEl.textContent = label;
+
+  handsEl.forEach((el,o)=>{
+    el.innerHTML = alive[o]
+      ? `<h3>P${o+1} 持ち駒</h3><div class=list></div>`
+      : `<h3>P${o+1} 脱落</h3>`;
+    if(!alive[o]) return;
+    let list=el.querySelector('.list');
+    hands[o].forEach((pc,i)=>{
+      let d=document.createElement('div');
+      d.className='pc'; d.textContent=pc;
+      d.onclick=()=>clickHand(o,i);
+      list.appendChild(d);
+    });
+  });
+
+  boardEl.className='board turn'+turn;
+  updateWaitingBanner();
+}
+
+/* ============================================================
+   保存・復元
+   ============================================================ */
+function exportCode(){
+  return btoa(unescape(encodeURIComponent(
+    JSON.stringify({board,hands,alive,turn,mythMode,vassalMode})
+  )));
+}
+
+function importCode(code){
+  try{
+    const d=JSON.parse(decodeURIComponent(escape(atob(code))));
+    board=d.board; hands=d.hands; alive=d.alive; turn=d.turn;
+    mythMode=d.mythMode??true; vassalMode=d.vassalMode??true;
+    document.getElementById('mythToggle').checked=mythMode;
+    document.getElementById('vassalToggle').checked=vassalMode;
+    sel=null; selHand=null; marks=[]; history=[];
+    draw();
+  }catch(e){ alert('コードが壊れています'); }
+}
+
+function saveCode(){
+  const code=exportCode();
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(code)
+      .then(()=>alert('コードをクリップボードにコピーしました。'))
+      .catch(()=>fallbackCopy(code));
+  }else{ fallbackCopy(code); }
+}
+
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.style.cssText='position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); document.body.removeChild(ta);
+  alert('コードをコピーしました');
+}
+
+function loadCode(){
+  const code=prompt('保存したコードを貼り付けてください。');
+  if(code) importCode(code.trim());
+}
+
+/* ============================================================
+   起動
+   ============================================================ */
+initCore();
+showLobby('main');
+</script>
+</body>
+</html>

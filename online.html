@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋　オンライン</title>
+<title>真・四人将棋</title>
 <link rel="icon" href="favicon.ico?v=1">
 <link rel="stylesheet" href="piece.css">
 <link rel="stylesheet" href="hikari.css">
@@ -608,6 +608,25 @@ function copyText(text){
 }
 
 /* ============================================================
+   古いルームの掃除（24時間以上前を削除）
+   ============================================================ */
+async function cleanOldRooms(){
+  if(!db) return;
+  try{
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const snap = await db.ref('rooms')
+      .orderByChild('createdAt')
+      .endAt(cutoff)
+      .once('value');
+    const removes = [];
+    snap.forEach(child => {
+      removes.push(db.ref(`rooms/${child.key}`).remove());
+    });
+    await Promise.all(removes);
+  }catch(e){ /* 掃除失敗は無視 */ }
+}
+
+/* ============================================================
    部屋を作る
    ============================================================ */
 function goCreateRoom(){
@@ -617,6 +636,7 @@ function goCreateRoom(){
 
 async function createRoom(newRoomId){
   if(!db) return;
+  await cleanOldRooms();
 
   roomId   = newRoomId;
   myPlayer = 0;
@@ -657,6 +677,7 @@ async function createRoom(newRoomId){
 async function startRandom(){
   if(!db){ alert('Firebase設定が必要です'); return; }
   renderLobby('matching');
+  await cleanOldRooms();
 
   try{
     // status=waiting かつ isRandom=true の部屋を探す

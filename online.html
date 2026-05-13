@@ -623,7 +623,8 @@ let nameDebounceTimer = null;
 function updateMyName(val){
   val = val.slice(0, 5);
   myName = val;
-  // 文字数だけ即時更新（inputは触らない）
+  // roomNamesもローカルで即時反映（draw()がすぐ正しい名前を参照できるよう）
+  if(myPlayer !== null) roomNames[myPlayer] = val || `P${myPlayer+1}`;
   const cnt = document.getElementById('nameCount');
   if(cnt) cnt.textContent = val.length;
   // Firebase書き込みは300msデバウンス
@@ -690,6 +691,7 @@ async function createRoom(newRoomId){
   isOnline = true;
   roomRef  = db.ref(`rooms/${roomId}`);
   stateRef = db.ref(`rooms/${roomId}/state`);
+  roomNames = { 0: myName || 'P1' };
 
   // ゲーム初期化（ローカル）
   board = [...Array(N)].map(()=>Array(N).fill(null));

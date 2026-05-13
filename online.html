@@ -50,6 +50,8 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 .wall{background:var(--bg);pointer-events:none}
 .sel{outline:3px solid var(--sel)}
 .move{background:var(--move)!important}
+.last-from{background:#ff6b6b!important}
+.last-to{background:#6bcb77!important}
 
 .p0{transform:rotate(180deg)}
 .p1{transform:rotate(270deg)}
@@ -332,7 +334,7 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
   <button onclick="showLobby('main')" style="margin-left:8px">🌐 オンライン対戦</button>
   <div id="stampWrapper" style="margin-left:auto">
     <button id="stampBtn" onclick="toggleStampPicker(event)" title="スタンプ" style="font-size:18px;padding:5px 10px">
-      🗯️
+      🎭
     </button>
     <div id="stampCooldownBar"></div>
     <div id="stampPickerPopup"></div>
@@ -401,7 +403,7 @@ const FIREBASE_CONFIG = {
    ★★★  オフラインページのURL（ここを書き換えてください）  ★★★
    例: const OFFLINE_URL = "https://example.com/offline/";
    ============================================================ */
-const OFFLINE_URL = "https://keisuke-mc.github.io/sin4ninshogi/";
+const OFFLINE_URL = "./offline/index.html";
 
 /* ============================================================
    Firebase 初期化
@@ -459,6 +461,7 @@ let mythMode   = true;
 let vassalMode = true;
 let sel = null, selHand = null, marks = [];
 let history = [];
+let lastMove = null; // { from:{r,c}|null, to:{r,c} } 直前の手のハイライト用
 
 /* ============================================================
    オンライン変数
@@ -833,6 +836,7 @@ function listenRoom(){
     board = d.board; hands = d.hands; alive = d.alive; turn = d.turn;
     mythMode   = d.mythMode   ?? true;
     vassalMode = d.vassalMode ?? true;
+    lastMove   = d.lastMove   ?? null;
     document.getElementById('mythToggle').checked  = mythMode;
     document.getElementById('vassalToggle').checked = vassalMode;
     sel = null; selHand = null; marks = [];
@@ -889,7 +893,7 @@ function pushState(){
 }
 
 function makeStateJson(){
-  return JSON.stringify({ board, hands, alive, turn, mythMode, vassalMode });
+  return JSON.stringify({ board, hands, alive, turn, mythMode, vassalMode, lastMove });
 }
 
 /* ============================================================
@@ -943,6 +947,7 @@ function initCore(){
   alive = [true,true,true,true];
   turn  = 0;
   history = [];
+  lastMove = null;
   placeInitial();
   draw();
 }
@@ -1098,6 +1103,7 @@ function clickCell(r,c){
       save();
       board[r][c]={t:selHand.t, o:turn, dropped:true};
       hands[turn].splice(selHand.i, 1);
+      lastMove = { from: null, to: {r, c} };
       selHand=null; marks=[];
       if(isCheck(turn)) showCheck();
       nextTurn();
@@ -1113,6 +1119,7 @@ function clickCell(r,c){
       save();
       let p   = board[sel.r][sel.c];
       let cap = board[r][c];
+      lastMove = { from: {r: sel.r, c: sel.c}, to: {r, c} };
       board[r][c] = p; board[sel.r][sel.c] = null;
 
       /* 王→神 */
@@ -1387,6 +1394,10 @@ function draw(){
     let d=document.createElement('div');
     if(!inPlay(r,c)){ d.className='cell wall'; boardEl.appendChild(d); continue; }
     d.className='cell '+((r+c)%2?'dark':'');
+    if(lastMove){
+      if(lastMove.from && lastMove.from.r===r && lastMove.from.c===c) d.classList.add('last-from');
+      if(lastMove.to   && lastMove.to.r===r   && lastMove.to.c===c)   d.classList.add('last-to');
+    }
     if(sel&&sel.r===r&&sel.c===c) d.classList.add('sel');
     if(marks.some(m=>m[0]===r&&m[1]===c)) d.classList.add('move');
     if(board[r][c]){

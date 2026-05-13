@@ -445,8 +445,8 @@ function renderLobby(screen, data){
       <div class="player-slots">${slots}</div>
       <p class="status-msg">プレイヤー <strong>${count} / 4</strong></p>
       ${isHost
-        ? `<button class="lb-btn lb-primary" ${count < 2 ? 'disabled' : ''} onclick="hostStartGame()">
-             🎮 ゲーム開始${count < 2 ? ` (あと${2-count}人)` : ''}
+        ? `<button class="lb-btn lb-primary" ${count < 4 ? 'disabled' : ''} onclick="hostStartGame()">
+             🎮 ゲーム開始${count < 4 ? ` (あと${4-count}人)` : ''}
            </button>`
         : `<p class="status-msg">ホストがゲームを開始するまでお待ちください</p>`
       }

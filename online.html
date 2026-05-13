@@ -1046,11 +1046,30 @@ function checkWin(){
 function aliveCount(){ return alive.filter(v=>v).length; }
 
 /* ============================================================
+   視点変換ヘルパー
+   myPlayer に応じて「自分の陣地が手前（下）」になるよう
+   視覚座標(vr,vc) ↔ 盤面座標(r,c) を変換する
+
+   デフォルト（P2/オフライン）: 盤面下側が手前
+   P0: 180°回転（上→下）
+   P1: 時計回り90°（右→下）
+   P3: 反時計回り90°（左→下）
+   ============================================================ */
+function viewToBoard(vr, vc){
+  const p = (isOnline && myPlayer !== null) ? myPlayer : 2;
+  if(p === 0) return [N-1-vr, N-1-vc];
+  if(p === 1) return [N-1-vc, vr];
+  if(p === 3) return [vc, N-1-vr];
+  return [vr, vc]; // p===2
+}
+
+/* ============================================================
    描画
    ============================================================ */
 function draw(){
   boardEl.innerHTML='';
-  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+  for(let vr=0;vr<N;vr++) for(let vc=0;vc<N;vc++){
+    const [r,c] = viewToBoard(vr, vc);
     let d=document.createElement('div');
     if(!inPlay(r,c)){ d.className='cell wall'; boardEl.appendChild(d); continue; }
     d.className='cell '+((r+c)%2?'dark':'');

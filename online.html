@@ -225,7 +225,74 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 
 hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 
-/* オンライン状態バッジ */
+/* =====================
+   スタンプ機能
+   ===================== */
+#stampWrapper{
+  position:relative;
+  display:inline-block;
+}
+#stampPickerPopup{
+  display:none;
+  position:absolute;
+  top:36px;
+  right:0;
+  background:#fff7e0;
+  border:2px solid #c6862c;
+  border-radius:10px;
+  padding:8px;
+  z-index:800;
+  box-shadow:0 4px 16px rgba(0,0,0,0.25);
+  display:none;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  width:120px;
+}
+#stampPickerPopup.open{ display:grid; }
+.stamp-choice{
+  font-size:32px;
+  text-align:center;
+  cursor:pointer;
+  border-radius:8px;
+  padding:4px;
+  transition:background .15s, transform .1s;
+  line-height:1;
+}
+.stamp-choice:hover{ background:#f4d9a6; transform:scale(1.15); }
+#stampBtn.cooldown{ opacity:.4; cursor:default; }
+#stampCooldownBar{
+  position:absolute;
+  bottom:-4px;
+  left:0;
+  height:3px;
+  background:#e8820a;
+  border-radius:2px;
+  width:0%;
+  transition:none;
+}
+
+/* 盤上スタンプ表示 */
+.stamp-display{
+  position:absolute;
+  width:80px;
+  height:80px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  z-index:300;
+  animation:stampPop .25s ease, stampFade 2s forwards;
+  filter:drop-shadow(2px 3px 4px rgba(0,0,0,0.5));
+}
+@keyframes stampPop{
+  0%  { transform:translate(-50%,-50%) scale(0.2); opacity:0; }
+  60% { transform:translate(-50%,-50%) scale(1.25); opacity:1; }
+  100%{ transform:translate(-50%,-50%) scale(1);    opacity:1; }
+}
+@keyframes stampFade{
+  0%  { opacity:1; }
+  70% { opacity:1; }
+  100%{ opacity:0; }
+}
+
 #onlineBadge{
   display:inline-block;
   background:#2a9d2a;
@@ -257,12 +324,19 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 <body>
 
 <h1>真・四人将棋 <span id="onlineBadge" style="display:none">🔌 オンライン</span></h1>
-<div>
+<div style="margin:6px 0;display:flex;align-items:center;gap:6px">
   <span id="turn"></span>
   <button onclick="undoAction()">待った</button>
   <button onclick="initAction()">初期化</button>
   <button onclick="location.href='setumei'">遊び方</button>
   <button onclick="showLobby('main')" style="margin-left:8px">🌐 オンライン対戦</button>
+  <div id="stampWrapper" style="margin-left:auto">
+    <button id="stampBtn" onclick="toggleStampPicker(event)" title="スタンプ" style="font-size:18px;padding:5px 10px">
+      🎭
+    </button>
+    <div id="stampCooldownBar"></div>
+    <div id="stampPickerPopup"></div>
+  </div>
 </div>
 
 <div style="margin:6px 0">
@@ -355,6 +429,28 @@ const back       = ['香','桂','銀','金','王','金','銀','桂','香'];
 const promoteMap = {歩:'と',香:'杏',桂:'圭',銀:'全',角:'馬',飛:'龍'};
 const unpromote  = {と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'};
 
+/* ============================================================
+   スタンプ定数
+   ★★★ スタンプ画像のURLをここに設定してください ★★★
+   ============================================================ */
+const STAMPS = [
+  { url: 'stamps/stamp1.png', label: 'スタンプ1' },
+  { url: 'stamps/stamp2.png', label: 'スタンプ2' },
+  { url: 'stamps/stamp3.png', label: 'スタンプ3' },
+  { url: 'stamps/stamp4.png', label: 'スタンプ4' },
+];
+
+// 各プレイヤーの陣地中心（盤面座標）
+const PLAYER_HOME_RC = [
+  [1,  7],  // P0: 上辺中央
+  [7,  13], // P1: 右辺中央
+  [13, 7],  // P2: 下辺中央
+  [7,  1],  // P3: 左辺中央
+];
+
+let stampCooldownUntil = 0;  // ms timestamp
+let stampCooldownTimer = null;
+let stampListener      = null;
 /* ============================================================
    ゲーム変数
    ============================================================ */
@@ -707,7 +803,8 @@ function listenRoom(){
     }
   });
 
-  /* 盤面状態（手が指されたとき） */
+  // スタンプリスナーも開始
+  listenStamp();
   stateListener = stateRef.on('value', snap => {
     if(localMoving) return; // 自分の手を処理中は無視
     const raw = snap.val();
@@ -721,12 +818,20 @@ function listenRoom(){
     sel = null; selHand = null; marks = [];
     draw();
     updateWaitingBanner();
+    // 自分が王手されているかクライアント側でチェック
+    if(myPlayer !== null && isCheckOn(myPlayer)) showCheck();
+  });
+  /* スタンプ受信リスナー */
+  if(stampListener){ db.ref(`rooms/${roomId}/stamp`).off('value', stampListener); }
+  stampListener = db.ref(`rooms/${roomId}/stamp`).on('value', snap => {
+    const d = snap.val();
+    if(!d) return;
+    // 送信者以外のクライアントに表示（送信者はsendStamp内で表示済み）
+    if(d.uid !== myUid){
+      showStampOnBoard(d.player, d.stampIdx);
+    }
   });
 }
-
-/* ============================================================
-   ホストがゲーム開始
-   ============================================================ */
 async function hostStartGame(){
   if(!isHost || !db) return;
   await roomRef.update({ status: 'playing' });
@@ -910,6 +1015,34 @@ function genMoves(p,r,c){
   return res;
 }
 
+/* 指定プレイヤーが誰かに王手されているか */
+function isCheckOn(defender){
+  if(!alive[defender]) return false;
+  // defender の王（または神）の位置を探す
+  let kr=-1, kc=-1;
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const p=board[r][c];
+    if(p&&p.o===defender&&(p.t==='王'||p.t==='神')){kr=r;kc=c;}
+  }
+  if(kr<0) return false; // 王がない（脱落済み）
+  // 他のプレイヤー全員の駒がその王に到達できるか
+  for(let o=0;o<4;o++){
+    if(o===defender||!alive[o]) continue;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const p=board[r][c];
+      if(p&&p.o===o){
+        if(genMoves(p,r,c).some(m=>m[0]===kr&&m[1]===kc)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/* 自分（または特定プレイヤー）が王手されていれば表示 */
+function checkAndShowCheck(target){
+  if(isCheckOn(target)) showCheck();
+}
+
 function isCheck(attacker){
   for(let o=0;o<4;o++){
     if(o===attacker||!alive[o]) continue;
@@ -948,7 +1081,10 @@ function clickCell(r,c){
       hands[turn].splice(selHand.i, 1);
       selHand=null; marks=[];
       if(isCheck(turn)) showCheck();
-      nextTurn(); draw(); pushState();
+      nextTurn();
+      // 次の手番プレイヤーが王手されているか全クライアントでチェック
+      if(isCheckOn(turn)) showCheck();
+      draw(); pushState();
     }
     return;
   }
@@ -993,7 +1129,9 @@ function clickCell(r,c){
 
       sel=null; marks=[];
       if(isCheck(turn)) showCheck();
-      nextTurn(); draw(); pushState();
+      nextTurn();
+      if(isCheckOn(turn)) showCheck();
+      draw(); pushState();
     }else{
       sel=null; marks=[]; draw();
     }
@@ -1085,7 +1223,113 @@ function updateHandLayout(){
 }
 
 /* ============================================================
-   視点変換ヘルパー
+   スタンプ機能
+   ============================================================ */
+
+/* 盤面座標 → 視覚座標（viewToBoardの逆変換） */
+function boardToView(r, c){
+  const p = (isOnline && myPlayer !== null) ? myPlayer : 2;
+  if(p === 0) return [N-1-r, N-1-c];
+  if(p === 1) return [c,     N-1-r];
+  if(p === 3) return [N-1-c, r    ];
+  return [r, c]; // p===2
+}
+
+/* スタンプを盤上に表示（ローカル描画） */
+function showStampOnBoard(playerIdx, stampIdx){
+  const [br, bc] = PLAYER_HOME_RC[playerIdx];
+  const [vr, vc] = boardToView(br, bc);
+
+  // セルサイズ: 40px + gap 2px = 42px, boardパディング 6px
+  const CELL = 42, PAD = 6;
+  const x = PAD + vc * CELL + 20; // px (左端基準)
+  const y = PAD + vr * CELL + 20; // px (上端基準)
+
+  const el = document.createElement('img');
+  el.className   = 'stamp-display';
+  el.src         = STAMPS[stampIdx].url;
+  el.alt         = STAMPS[stampIdx].label;
+  el.style.left  = x + 'px';
+  el.style.top   = y + 'px';
+  el.style.width  = '80px';
+  el.style.height = '80px';
+  el.style.objectFit = 'contain';
+  boardEl.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+/* スタンプピッカーの開閉 */
+function toggleStampPicker(e){
+  e.stopPropagation();
+  if(stampCooldownUntil > Date.now()){
+    const left = Math.ceil((stampCooldownUntil - Date.now()) / 1000);
+    alert(`あと ${left} 秒待ってください`);
+    return;
+  }
+  const picker = document.getElementById('stampPickerPopup');
+  if(picker.classList.contains('open')){
+    picker.classList.remove('open');
+    return;
+  }
+  // ピッカー内容を毎回生成
+  picker.innerHTML = STAMPS.map((s, i) =>
+    `<div class="stamp-choice" onclick="sendStamp(${i})">
+       <img src="${s.url}" alt="${s.label}" style="width:48px;height:48px;object-fit:contain;display:block">
+     </div>`
+  ).join('');
+  picker.classList.add('open');
+}
+// ピッカー外クリックで閉じる
+document.addEventListener('click', () => {
+  const p = document.getElementById('stampPickerPopup');
+  if(p) p.classList.remove('open');
+});
+
+/* スタンプ送信 */
+function sendStamp(stampIdx){
+  document.getElementById('stampPickerPopup').classList.remove('open');
+
+  const sender = (isOnline && myPlayer !== null) ? myPlayer : 2;
+
+  // ローカル即時表示
+  showStampOnBoard(sender, stampIdx);
+
+  // Firebase送信（オンライン時のみ）
+  if(isOnline && db && roomRef){
+    db.ref(`rooms/${roomId}/stamp`).set({
+      player:   sender,
+      stampIdx: stampIdx,
+      uid:      myUid,
+      ts:       Date.now()
+    });
+  }
+
+  // 15秒クールダウン
+  startStampCooldown();
+}
+
+function startStampCooldown(){
+  stampCooldownUntil = Date.now() + 15000;
+  const btn = document.getElementById('stampBtn');
+  const bar = document.getElementById('stampCooldownBar');
+  btn.classList.add('cooldown');
+
+  let elapsed = 0;
+  if(stampCooldownTimer) clearInterval(stampCooldownTimer);
+  stampCooldownTimer = setInterval(() => {
+    elapsed += 100;
+    const pct = Math.min(elapsed / 150, 100); // 15000ms → 100%
+    bar.style.width = pct + '%';
+    if(elapsed >= 15000){
+      clearInterval(stampCooldownTimer);
+      stampCooldownTimer = null;
+      bar.style.width = '0%';
+      btn.classList.remove('cooldown');
+    }
+  }, 100);
+}
+
+/* ============================================================
    myPlayer に応じて「自分の陣地が手前（下）」になるよう
    視覚座標(vr,vc) ↔ 盤面座標(r,c) を変換する
 
@@ -1166,6 +1410,155 @@ function draw(){
 }
 
 /* ============================================================
+   スタンプ機能
+   ============================================================ */
+const STAMPS = ['🎉','😤','🙏','👍'];
+const STAMP_COOLDOWN = 15000; // 15秒
+let lastStampTime = 0;
+let cooldownTimer = null;
+let stampRef = null;
+let stampListener = null;
+
+// ピッカーを初期化
+function initStampPicker(){
+  const popup = document.getElementById('stampPickerPopup');
+  popup.innerHTML = '';
+  STAMPS.forEach(s => {
+    const btn = document.createElement('div');
+    btn.className = 'stamp-choice';
+    btn.textContent = s;
+    btn.onclick = (e) => { e.stopPropagation(); useStamp(s); };
+    popup.appendChild(btn);
+  });
+}
+
+// ピッカー開閉
+function toggleStampPicker(e){
+  e.stopPropagation();
+  const popup = document.getElementById('stampPickerPopup');
+  const isOpen = popup.classList.contains('open');
+  // 他のクリックで閉じるリスナー
+  if(!isOpen){
+    popup.classList.add('open');
+    setTimeout(()=> document.addEventListener('click', closeStampPicker, {once:true}), 0);
+  }else{
+    popup.classList.remove('open');
+  }
+}
+
+function closeStampPicker(){
+  document.getElementById('stampPickerPopup').classList.remove('open');
+}
+
+// スタンプ使用
+function useStamp(stampId){
+  closeStampPicker();
+  const now = Date.now();
+  if(now - lastStampTime < STAMP_COOLDOWN){
+    const remain = Math.ceil((STAMP_COOLDOWN - (now - lastStampTime)) / 1000);
+    alert(`あと ${remain} 秒後に使えます`);
+    return;
+  }
+  // 誰のスタンプか（オンライン=myPlayer、オフライン=turn）
+  const sender = (isOnline && myPlayer !== null) ? myPlayer : turn;
+
+  lastStampTime = now;
+  startCooldownBar();
+
+  if(isOnline && stampRef){
+    // Firebase経由で全員に配信
+    stampRef.set({ player: sender, stampId, ts: now });
+  }else{
+    // オフラインはローカル表示のみ
+    showStampOnBoard(sender, stampId);
+  }
+}
+
+// クールダウンバーアニメーション
+function startCooldownBar(){
+  const btn = document.getElementById('stampBtn');
+  const bar = document.getElementById('stampCooldownBar');
+  btn.classList.add('cooldown');
+  btn.disabled = true;
+  bar.style.transition = 'none';
+  bar.style.width = '100%';
+
+  // 1フレーム後にトランジション開始
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      bar.style.transition = `width ${STAMP_COOLDOWN}ms linear`;
+      bar.style.width = '0%';
+    });
+  });
+
+  clearTimeout(cooldownTimer);
+  cooldownTimer = setTimeout(()=>{
+    btn.classList.remove('cooldown');
+    btn.disabled = false;
+    bar.style.width = '0%';
+  }, STAMP_COOLDOWN);
+}
+
+/* ============================================================
+   盤面座標 → 視覚座標の変換
+   viewToBoard の逆変換
+   ============================================================ */
+function boardToView(r, c){
+  const p = (isOnline && myPlayer !== null) ? myPlayer : 2;
+  if(p === 0) return [N-1-r, N-1-c];
+  if(p === 1) return [c,     N-1-r];
+  if(p === 3) return [N-1-c, r    ];
+  return [r, c]; // p===2
+}
+
+/* ============================================================
+   スタンプを盤上に表示
+   各プレイヤーの陣地中心（盤面座標）:
+     P0: (1, 7)  P1: (7, 13)  P2: (13, 7)  P3: (7, 1)
+   ============================================================ */
+function showStampOnBoard(player, stampId){
+  // 盤面座標での陣地中心
+  const centers = [[1,7],[7,13],[13,7],[7,1]];
+  const [br, bc] = centers[player];
+
+  // 視覚座標へ変換
+  const [vr, vc] = boardToView(br, bc);
+
+  // ピクセル位置（cell=40px, gap=2px, padding=6px）
+  const cellStep = 42;
+  const pad = 6;
+  const x = pad + vc * cellStep + 20; // セル中心
+  const y = pad + vr * cellStep + 20;
+
+  const el = document.createElement('div');
+  el.className = 'stamp-display';
+  el.textContent = stampId;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  boardEl.appendChild(el);
+
+  setTimeout(() => el.remove(), 2000);
+}
+
+/* ============================================================
+   FirebaseスタンプリスナーをlistenRoomに統合
+   （listenRoom内でstampRefを設定・監視）
+   ============================================================ */
+function listenStamp(){
+  if(!db || !roomId) return;
+  stampRef = db.ref(`rooms/${roomId}/stamp`);
+  if(stampListener) stampRef.off('value', stampListener);
+
+  let lastTs = 0;
+  stampListener = stampRef.on('value', snap => {
+    const d = snap.val();
+    if(!d || d.ts <= lastTs) return;
+    lastTs = d.ts;
+    showStampOnBoard(d.player, d.stampId);
+  });
+}
+
+/* ============================================================
    保存・復元
    ============================================================ */
 function exportCode(){
@@ -1212,6 +1605,7 @@ function loadCode(){
    起動
    ============================================================ */
 initCore();
+initStampPicker();
 showLobby('main');
 </script>
 </body>

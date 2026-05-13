@@ -623,11 +623,12 @@ let nameDebounceTimer = null;
 function updateMyName(val){
   val = val.slice(0, 5);
   myName = val;
-  // roomNamesもローカルで即時反映（draw()がすぐ正しい名前を参照できるよう）
   if(myPlayer !== null) roomNames[myPlayer] = val || `P${myPlayer+1}`;
   const cnt = document.getElementById('nameCount');
   if(cnt) cnt.textContent = val.length;
-  // Firebase書き込みは300msデバウンス
+  // ゲーム中なら即時描画に反映
+  const lobbyHidden = document.getElementById('lobby').style.display === 'none';
+  if(lobbyHidden) draw();
   clearTimeout(nameDebounceTimer);
   nameDebounceTimer = setTimeout(() => {
     if(isOnline && db && roomId && myPlayer !== null){
@@ -923,10 +924,11 @@ function listenRoom(){
 }
 async function hostStartGame(){
   if(!isHost || !db) return;
-  // 最新の名前を取得してからstate更新
   const namesSnap = await db.ref(`rooms/${roomId}/names`).once('value');
   if(namesSnap.val()) roomNames = namesSnap.val();
+  // ホスト自身のstateListenerはlocalMovingでスキップされるためここでdraw
   pushState();
+  draw();
   await roomRef.update({ status: 'playing' });
 }
 

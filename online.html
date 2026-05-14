@@ -348,7 +348,7 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 
 <div style="margin:6px 0">
   <button onclick="saveCode()">コード保存</button>
-  <button onclick="loadCode()">コード復元</button>
+  <button id="loadCodeBtn" onclick="loadCode()">コード復元</button>
 </div>
 
 <div class="layout">
@@ -1538,6 +1538,7 @@ function draw(){
   document.getElementById('vassalToggle').disabled = onlyHost;
   document.getElementById('mythToggle').title  = onlyHost ? 'ホストのみ変更できます' : '';
   document.getElementById('vassalToggle').title = onlyHost ? 'ホストのみ変更できます' : '';
+  updateLoadCodeBtn();
 }
 
 /* ============================================================
@@ -1551,18 +1552,29 @@ function exportCode(){
 
 function importCode(code){
   try{
-    const d=JSON.parse(decodeURIComponent(escape(atob(code))));
-    board=d.board; hands=d.hands; alive=d.alive; turn=d.turn;
-    mythMode=d.mythMode??true; vassalMode=d.vassalMode??true;
-    document.getElementById('mythToggle').checked=mythMode;
-    document.getElementById('vassalToggle').checked=vassalMode;
-    sel=null; selHand=null; marks=[]; history=[];
+    const d = JSON.parse(decodeURIComponent(escape(atob(code))));
+    // 必須フィールドの存在チェック
+    if(!d.board || !d.hands || !d.alive || d.turn === undefined){
+      alert('コードが壊れています'); return;
+    }
+    board      = d.board;
+    hands      = d.hands;
+    alive      = d.alive;
+    turn       = d.turn;
+    mythMode   = d.mythMode   ?? true;
+    vassalMode = d.vassalMode ?? true;
+    lastMove   = d.lastMove   ?? null;   // ★ ハイライト状態も復元
+    if(d.names) roomNames = d.names;     // ★ 名前も復元
+    document.getElementById('mythToggle').checked  = mythMode;
+    document.getElementById('vassalToggle').checked = vassalMode;
+    sel = null; selHand = null; marks = []; history = [];
     draw();
+    if(isOnline) pushState();            // ★ 全員に同期
   }catch(e){ alert('コードが壊れています'); }
 }
 
 function saveCode(){
-  const code=exportCode();
+  const code = exportCode();
   if(navigator.clipboard){
     navigator.clipboard.writeText(code)
       .then(()=>alert('コードをクリップボードにコピーしました。'))
@@ -1571,16 +1583,29 @@ function saveCode(){
 }
 
 function fallbackCopy(text){
-  const ta=document.createElement('textarea');
-  ta.value=text; ta.style.cssText='position:fixed;opacity:0';
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
   document.body.appendChild(ta); ta.select();
   document.execCommand('copy'); document.body.removeChild(ta);
   alert('コードをコピーしました');
 }
 
 function loadCode(){
-  const code=prompt('保存したコードを貼り付けてください。');
+  // オンライン時はホストのみ
+  if(isOnline && !isHost){
+    alert('コード復元はホストのみ行えます'); return;
+  }
+  const code = prompt('保存したコードを貼り付けてください。');
   if(code) importCode(code.trim());
+}
+
+// draw()のたびに復元ボタンのdisabled状態を更新する
+function updateLoadCodeBtn(){
+  const btn = document.getElementById('loadCodeBtn');
+  if(!btn) return;
+  const disabled = isOnline && !isHost;
+  btn.disabled = disabled;
+  btn.title    = disabled ? 'ホストのみ復元できます' : '';
 }
 
 /* ============================================================

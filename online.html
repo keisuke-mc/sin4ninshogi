@@ -609,7 +609,7 @@ function renderLobby(screen, data){
       <p class="lp">（P${myPlayer+1}）として参加します</p>
       <div class="spinner"></div>
     `;
-    setTimeout(hideLobby, 1800);
+    setTimeout(() => { hideLobby(); draw(); }, 1800);
   }
 }
 
@@ -1027,6 +1027,7 @@ function listenRoom(){
       if(data.uidOrder) currentUidOrder = data.uidOrder;
       // lobbyが表示中のときだけ開始演出を表示
       if(lobbyVisible) renderLobby('starting');
+      else draw(); // リロード復帰時や演出後はそのまま再描画
     }
 
     if(data.winner !== undefined){
@@ -1080,9 +1081,9 @@ async function hostStartGame(){
   // finalUidOrder・names を書き込んで全員に通知
   await roomRef.update({ finalUidOrder: uidOrder, names: finalNames });
 
-  pushState();
+  await pushState();
   draw();
-  saveSession(); // 確定したmyPlayerをlocalStorageに保存
+  saveSession();
   await roomRef.update({ status: 'playing' });
 }
 
@@ -1112,9 +1113,9 @@ async function leaveRoom(){
    状態をFirebaseに送信
    ============================================================ */
 function pushState(){
-  if(!isOnline || !stateRef) return;
+  if(!isOnline || !stateRef) return Promise.resolve();
   localMoving = true;
-  stateRef.set(makeStateJson()).then(() => {
+  return stateRef.set(makeStateJson()).then(() => {
     localMoving = false;
   });
 }

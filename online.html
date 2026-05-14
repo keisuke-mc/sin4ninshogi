@@ -1077,6 +1077,7 @@ async function hostStartGame(){
   // ホスト自身の myPlayer を新スロットで確定
   myPlayer = uidOrder.indexOf(myUid);
   roomNames = finalNames;
+  lastMove = null; // ★ 前の対局のハイライトをリセット
 
   // finalUidOrder・names を書き込んで全員に通知
   await roomRef.update({ finalUidOrder: uidOrder, names: finalNames });

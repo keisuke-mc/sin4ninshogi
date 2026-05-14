@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋　オンライン</title>
+<title>真・四人将棋</title>
 <link rel="icon" href="favicon.ico?v=1">
 <link rel="stylesheet" href="piece.css">
 <link rel="stylesheet" href="hikari.css">
@@ -422,7 +422,7 @@ const FIREBASE_CONFIG = {
    ★★★  オフラインページのURL（ここを書き換えてください）  ★★★
    例: const OFFLINE_URL = "https://example.com/offline/";
    ============================================================ */
-const OFFLINE_URL = "https://keisuke-mc.github.io/sin4ninshogi/";
+const OFFLINE_URL = "./offline/index.html";
 
 /* ============================================================
    Firebase 初期化
@@ -455,10 +455,10 @@ const unpromote  = {と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'}
    ★★★ スタンプ画像のURLをここに設定してください ★★★
    ============================================================ */
 const STAMPS = [
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/1.png', label: 'ふん！' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/2.png', label: '助けて' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/3.png', label: 'わかった' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/4.png', label: 'うーん...' },
+  { url: 'stamps/stamp1.png', label: 'スタンプ1' },
+  { url: 'stamps/stamp2.png', label: 'スタンプ2' },
+  { url: 'stamps/stamp3.png', label: 'スタンプ3' },
+  { url: 'stamps/stamp4.png', label: 'スタンプ4' },
 ];
 
 // 各プレイヤーの陣地中心（盤面座標）
@@ -1014,14 +1014,19 @@ function listenRoom(){
         renderLobby('waiting', { count: data.playerCount || 1, names: roomNames, uidOrder: data.uidOrder || [] });
       }
     }
-    else if(data.status === 'playing' && lobbyVisible){
-      // 非ホストはfinalUidOrderから自分のmyPlayerを確定
+    else if(data.status === 'playing'){
+      // finalUidOrderから全員のmyPlayerを確定（ホストは既に確定済みなので上書きしない）
       if(!isHost && data.finalUidOrder){
         const newIdx = data.finalUidOrder.indexOf(myUid);
-        if(newIdx !== -1) myPlayer = newIdx;
+        if(newIdx !== -1){
+          myPlayer = newIdx;
+          saveSession(); // 確定したmyPlayerをlocalStorageに保存
+        }
       }
       if(data.names) roomNames = data.names;
-      renderLobby('starting');
+      if(data.uidOrder) currentUidOrder = data.uidOrder;
+      // lobbyが表示中のときだけ開始演出を表示
+      if(lobbyVisible) renderLobby('starting');
     }
 
     if(data.winner !== undefined){
@@ -1077,6 +1082,7 @@ async function hostStartGame(){
 
   pushState();
   draw();
+  saveSession(); // 確定したmyPlayerをlocalStorageに保存
   await roomRef.update({ status: 'playing' });
 }
 
@@ -1788,13 +1794,25 @@ async function tryResumeSession(){
 
   // セッション情報を復元
   roomId   = s.roomId;
-  myPlayer = s.myPlayer;
   isHost   = s.isHost;
   isOnline = true;
   myName   = s.myName || '';
   roomRef  = db.ref(`rooms/${roomId}`);
   stateRef = db.ref(`rooms/${roomId}/state`);
-  if(myPlayer !== null) roomNames[myPlayer] = myName || `P${myPlayer+1}`;
+
+  // finalUidOrder があれば myPlayer を再解決（並び替え後の正しい番号）
+  if(data.finalUidOrder){
+    const newIdx = data.finalUidOrder.indexOf(s.myUid);
+    myPlayer = newIdx !== -1 ? newIdx : s.myPlayer;
+    if(data.uidOrder) currentUidOrder = data.uidOrder;
+  } else {
+    // ゲーム未開始（待機中リロード）は保存値を使う
+    myPlayer = s.myPlayer;
+    if(data.uidOrder) currentUidOrder = data.uidOrder;
+  }
+
+  if(data.names) roomNames = data.names;
+  if(myPlayer !== null && !roomNames[myPlayer]) roomNames[myPlayer] = myName || `P${myPlayer+1}`;
 
   // 盤面状態を取得
   const stateSnap = await stateRef.once('value');
@@ -1808,7 +1826,8 @@ async function tryResumeSession(){
     mythMode   = d.mythMode   ?? true;
     vassalMode = d.vassalMode ?? true;
     lastMove   = d.lastMove   ?? null;
-    if(d.names) roomNames = d.names;
+    // stateのnamesより roomListenerで取得したroomNamesを優先
+    if(d.names && Object.keys(roomNames).length === 0) roomNames = d.names;
     document.getElementById('mythToggle').checked  = mythMode;
     document.getElementById('vassalToggle').checked = vassalMode;
   }

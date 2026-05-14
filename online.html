@@ -734,6 +734,7 @@ async function createRoom(newRoomId){
   updateOnlineBadge(true);
   listenRoom();
   renderLobby('waiting', { count: 1 });
+  saveSession();
 }
 
 /* ============================================================
@@ -865,6 +866,7 @@ async function joinRoom(id, roomData){
   updateOnlineBadge(true);
   listenRoom();
   renderLobby('waiting', { count: myPlayer + 1 });
+  saveSession();
 }
 
 /* ============================================================
@@ -971,6 +973,7 @@ async function leaveRoom(){
   roomRef = null; stateRef = null; stateListener = null; roomListener = null;
   updateOnlineBadge(false);
   updateWaitingBanner();
+  clearSession();
 }
 
 /* ============================================================
@@ -1292,6 +1295,7 @@ function checkWin(){
   const a = alive.filter(v=>v);
   if(a.length===1){
     const winner = alive.indexOf(true);
+    clearSession();
     if(!isOnline){
       setTimeout(()=>showWinOverlay(winner), 300);
     }else{
@@ -1609,10 +1613,95 @@ function updateLoadCodeBtn(){
 }
 
 /* ============================================================
+   セッション保存・復元（リロード対策）
+   ============================================================ */
+const SESSION_KEY = 'shogi4_session';
+
+function saveSession(){
+  if(!isOnline || !roomId || myPlayer === null) return;
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    roomId, myPlayer, myUid, myName, isHost
+  }));
+}
+
+function clearSession(){
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function loadSession(){
+  try{
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+
+/* リロード後の復帰処理 */
+async function tryResumeSession(){
+  const s = loadSession();
+  if(!s || !s.roomId || !db) return false;
+
+  // Firebase上に部屋がまだあるか確認
+  let snap;
+  try{ snap = await db.ref(`rooms/${s.roomId}`).once('value'); }
+  catch(e){ clearSession(); return false; }
+
+  const data = snap.val();
+  if(!data || data.status === 'finished'){
+    clearSession(); return false;
+  }
+
+  // 確認ダイアログ
+  const playerLabel = s.myName ? `${s.myName}（P${s.myPlayer+1}）` : `P${s.myPlayer+1}`;
+  const ok = confirm(
+    `前回の対局が見つかりました。\n` +
+    `ルームID：${s.roomId}\n` +
+    `あなた：${playerLabel}\n\n` +
+    `対局に戻りますか？`
+  );
+  if(!ok){ clearSession(); return false; }
+
+  // セッション情報を復元
+  roomId   = s.roomId;
+  myPlayer = s.myPlayer;
+  isHost   = s.isHost;
+  isOnline = true;
+  myName   = s.myName || '';
+  roomRef  = db.ref(`rooms/${roomId}`);
+  stateRef = db.ref(`rooms/${roomId}/state`);
+  if(myPlayer !== null) roomNames[myPlayer] = myName || `P${myPlayer+1}`;
+
+  // 盤面状態を取得
+  const stateSnap = await stateRef.once('value');
+  const raw = stateSnap.val();
+  if(raw){
+    const d = JSON.parse(raw);
+    board      = d.board;
+    hands      = d.hands;
+    alive      = d.alive;
+    turn       = d.turn;
+    mythMode   = d.mythMode   ?? true;
+    vassalMode = d.vassalMode ?? true;
+    lastMove   = d.lastMove   ?? null;
+    if(d.names) roomNames = d.names;
+    document.getElementById('mythToggle').checked  = mythMode;
+    document.getElementById('vassalToggle').checked = vassalMode;
+  }
+
+  updateOnlineBadge(true);
+  listenRoom();
+  draw();
+  hideLobby();
+  return true;
+}
+
+/* ============================================================
    起動
    ============================================================ */
 initCore();
-showLobby('main');
+(async () => {
+  const resumed = await tryResumeSession();
+  if(!resumed) showLobby('main');
+})();
 </script>
 </body>
 </html>

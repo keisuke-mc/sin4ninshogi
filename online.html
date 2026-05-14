@@ -810,23 +810,28 @@ function cancelMatch(){
 async function joinById(){
   const input = document.getElementById('roomIdInput');
   const errEl = document.getElementById('joinError');
+  const btn   = document.querySelector('#lobbyContent .lb-btn.lb-primary');
   const id    = (input ? input.value.trim().toUpperCase() : '');
 
   errEl.textContent = '';
   if(id.length < 4){ errEl.textContent = 'ルームIDを入力してください'; return; }
   if(!db){ alert('Firebase設定が必要です'); return; }
 
+  // ボタンを無効化して連打防止
+  if(btn){ btn.disabled = true; btn.textContent = '参加中...'; }
+
   try{
     const snap = await db.ref(`rooms/${id}`).once('value');
     const data = snap.val();
 
-    if(!data){              errEl.textContent = '部屋が見つかりません';         return; }
-    if(data.status !== 'waiting'){ errEl.textContent = 'すでにゲームが始まっています'; return; }
-    if(data.playerCount >= 4){     errEl.textContent = '部屋が満員です (4/4)';         return; }
+    if(!data){              errEl.textContent = '部屋が見つかりません';             if(btn){ btn.disabled=false; btn.textContent='参加する'; } return; }
+    if(data.status !== 'waiting'){ errEl.textContent = 'すでにゲームが始まっています'; if(btn){ btn.disabled=false; btn.textContent='参加する'; } return; }
+    if(data.playerCount >= 4){     errEl.textContent = '部屋が満員です (4/4)';             if(btn){ btn.disabled=false; btn.textContent='参加する'; } return; }
 
     await joinRoom(id, data);
   }catch(e){
     errEl.textContent = 'エラー: ' + e.message;
+    if(btn){ btn.disabled = false; btn.textContent = '参加する'; }
   }
 }
 

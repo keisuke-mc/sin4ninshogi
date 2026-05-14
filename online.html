@@ -198,17 +198,19 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 }
 .player-slot.filled{background:#f4d9a6;border-color:#c6862c;color:#7a4a00;font-weight:bold}
 .player-slot.me{background:#e8820a;border-color:#b56000;color:#fff;font-weight:bold}
-.slot-swap-btns{
-  position:absolute;
-  right:-22px;top:50%;transform:translateY(-50%);
-  display:flex;flex-direction:column;gap:1px;
+.order-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
 }
-.slot-swap-btns button{
-  font-size:10px;padding:1px 3px;border-radius:3px;
+.slot-arrows{
+  display:flex;gap:4px;
+  min-height:22px;
+}
+.slot-arrows button{
+  font-size:12px;padding:2px 6px;border-radius:4px;
   border:1px solid #c6862c;background:#fff7e0;
   cursor:pointer;line-height:1;
 }
-.slot-swap-btns button:disabled{opacity:.3;cursor:default}
+.slot-arrows button:disabled{opacity:.3;cursor:default}
 #orderArea{
   display:flex;flex-direction:column;align-items:center;gap:2px;
   margin:8px 0;
@@ -420,7 +422,7 @@ const FIREBASE_CONFIG = {
    ★★★  オフラインページのURL（ここを書き換えてください）  ★★★
    例: const OFFLINE_URL = "https://example.com/offline/";
    ============================================================ */
-const OFFLINE_URL = "https://example.com/offline/";
+const OFFLINE_URL = "https://keisuke-mc.github.io/sin4ninshogi/";
 
 /* ============================================================
    Firebase 初期化
@@ -613,31 +615,58 @@ function renderLobby(screen, data){
 
 /* ============================================================
    順番入れ替え（ホスト専用）
+   uidOrder と names を同時にスワップして整合性を保つ
    ============================================================ */
 async function swapOrder(i, j){
   if(!isHost || !db) return;
-  const order = [...currentUidOrder];
+  const roomSnap = await roomRef.once('value');
+  const roomData = roomSnap.val() || {};
+  const order = [...(roomData.uidOrder || currentUidOrder)];
+  const names = Object.assign({}, roomData.names || {});
+
+  // uidOrder を入れ替え
   [order[i], order[j]] = [order[j], order[i]];
-  await db.ref(`rooms/${roomId}/uidOrder`).set(order);
+  // names（スロット番号索引）も入れ替え
+  const tmp = names[i]; names[i] = names[j]; names[j] = tmp;
+  if(names[i] === undefined) delete names[i];
+  if(names[j] === undefined) delete names[j];
+
+  await roomRef.update({ uidOrder: order, names });
 }
 
 async function shuffleOrder(){
   if(!isHost || !db) return;
-  const order = [...currentUidOrder];
+  const roomSnap = await roomRef.once('value');
+  const roomData = roomSnap.val() || {};
+  const order = [...(roomData.uidOrder || currentUidOrder)];
+  const oldNames = Object.assign({}, roomData.names || {});
+
+  // フィッシャー–イェーツ シャッフル
   for(let k = order.length - 1; k > 0; k--){
     const j = Math.floor(Math.random() * (k + 1));
     [order[k], order[j]] = [order[j], order[k]];
   }
-  await db.ref(`rooms/${roomId}/uidOrder`).set(order);
+  // names を新 order に合わせて並び直し
+  const newNames = {};
+  order.forEach((uid, newSlot) => {
+    // 元スロットを逆引き
+    const oldSlot = (roomData.uidOrder || currentUidOrder).indexOf(uid);
+    if(oldSlot !== -1 && oldNames[oldSlot] !== undefined){
+      newNames[newSlot] = oldNames[oldSlot];
+    }
+  });
+  await roomRef.update({ uidOrder: order, names: newNames });
 }
 
 /* ============================================================
    プレイヤースロットHTMLを生成（待機画面の部分更新用）
+   ◀▶ ボタンをスロットの上に配置
    ============================================================ */
 function buildPlayerSlots(count, names, uidOrder){
   names    = names    || {};
   uidOrder = uidOrder || currentUidOrder;
-  const rows = [];
+
+  const slots = [];
   for(let i = 0; i < 4; i++){
     const uid    = uidOrder[i];
     const joined = i < count && !!uid;
@@ -646,29 +675,38 @@ function buildPlayerSlots(count, names, uidOrder){
     const cls    = !joined ? 'player-slot'
                  : isMe   ? 'player-slot me'
                  :           'player-slot filled';
-    const sub    = !joined ? `<span style="font-size:9px">待機</span>`
-                 : isMe   ? `<span style="font-size:9px">あなた</span><span style="font-size:9px">${name}</span>`
-                 :           `<span style="font-size:9px">${name}</span>`;
+    const sub    = !joined
+      ? `<span style="font-size:9px">待機</span>`
+      : isMe
+      ? `<span style="font-size:9px">あなた</span><span style="font-size:9px">${name}</span>`
+      : `<span style="font-size:9px">${name}</span>`;
 
-    let swapBtns = '';
+    // ◀▶ ボタン（スロットの上、ホスト＆参加済みのみ）
+    let arrows = '';
     if(isHost && joined && count > 1){
-      swapBtns = `<div class="slot-swap-btns">
-        <button ${i===0?'disabled':''} onclick="swapOrder(${i},${i-1})">▲</button>
-        <button ${i===count-1?'disabled':''} onclick="swapOrder(${i},${i+1})">▼</button>
+      const lDis = (i === 0)          ? 'disabled' : '';
+      const rDis = (i === count - 1)  ? 'disabled' : '';
+      arrows = `<div class="slot-arrows">
+        <button ${lDis} onclick="swapOrder(${i},${i-1})">◀</button>
+        <button ${rDis} onclick="swapOrder(${i},${i+1})">▶</button>
       </div>`;
     }
-    rows.push(`<div class="${cls}"><span>P${i+1}</span>${sub}${swapBtns}</div>`);
+
+    slots.push(`<div class="order-item">
+      ${arrows}
+      <div class="${cls}"><span>P${i+1}</span>${sub}</div>
+    </div>`);
   }
 
   const shuffleBtn = isHost
     ? `<button onclick="shuffleOrder()"
-         style="font-size:12px;padding:4px 10px;margin-top:4px;border-radius:6px;
+         style="font-size:12px;padding:4px 10px;margin-top:6px;border-radius:6px;
                 border:1px solid #c6862c;background:#fff7e0;cursor:pointer">
          🔀 ランダムに並べる
        </button>` : '';
 
-  return `<div id="orderArea">
-    <div class="player-slots">${rows.join('')}</div>
+  return `<div id="orderArea" style="display:flex;flex-direction:column;align-items:center;gap:2px">
+    <div class="player-slots">${slots.join('')}</div>
     ${shuffleBtn}
   </div>`;
 }
@@ -681,16 +719,18 @@ let nameDebounceTimer = null;
 function updateMyName(val){
   val = val.slice(0, 5);
   myName = val;
-  if(myPlayer !== null) roomNames[myPlayer] = val || `P${myPlayer+1}`;
+  // 現在のスロット番号を確定（uidOrder から自分の位置を逆引き）
+  const mySlot = currentUidOrder.indexOf(myUid);
+  const slot   = mySlot !== -1 ? mySlot : myPlayer;
+  if(slot !== null && slot !== -1) roomNames[slot] = val || `P${slot+1}`;
   const cnt = document.getElementById('nameCount');
   if(cnt) cnt.textContent = val.length;
-  // ゲーム中なら即時描画に反映
   const lobbyHidden = document.getElementById('lobby').style.display === 'none';
   if(lobbyHidden) draw();
   clearTimeout(nameDebounceTimer);
   nameDebounceTimer = setTimeout(() => {
-    if(isOnline && db && roomId && myPlayer !== null){
-      db.ref(`rooms/${roomId}/names/${myPlayer}`).set(val || `P${myPlayer+1}`);
+    if(isOnline && db && roomId && slot !== -1 && slot !== null){
+      db.ref(`rooms/${roomId}/names/${slot}`).set(val || `P${slot+1}`);
     }
   }, 300);
 }
@@ -1021,30 +1061,19 @@ function listenRoom(){
 async function hostStartGame(){
   if(!isHost || !db) return;
 
-  // uidOrderを取得して最終確定
   const roomSnap = await roomRef.once('value');
-  const roomData = roomSnap.val();
-  const uidOrder  = roomData.uidOrder  || [myUid];
-  const rawNames  = roomData.names     || {};
+  const roomData = roomSnap.val() || {};
+  const uidOrder = roomData.uidOrder || [myUid];
 
-  // uidOrderに基づいてnamesを並び替え
-  // uidOrder[i] のプレイヤーがP(i+1)になる
-  const uidToOldPlayer = roomData.players || {};  // { uid: oldPlayerIdx }
-  const newNames = {};
-  uidOrder.forEach((uid, newIdx) => {
-    const oldIdx = uidToOldPlayer[uid];
-    newNames[newIdx] = rawNames[oldIdx] || `P${newIdx+1}`;
-  });
+  // names はすでにスロット番号で索引されている（swapOrder で同期済み）
+  const finalNames = Object.assign({}, roomData.names || {});
 
-  // 自分のmyPlayerを新しい順番に更新
+  // ホスト自身の myPlayer を新スロットで確定
   myPlayer = uidOrder.indexOf(myUid);
-  roomNames = newNames;
+  roomNames = finalNames;
 
-  // Firebaseにnewnames・uidOrderを書き込んで全員に通知
-  await roomRef.update({ names: newNames, finalUidOrder: uidOrder });
-
-  const namesSnap = await db.ref(`rooms/${roomId}/names`).once('value');
-  if(namesSnap.val()) roomNames = namesSnap.val();
+  // finalUidOrder・names を書き込んで全員に通知
+  await roomRef.update({ finalUidOrder: uidOrder, names: finalNames });
 
   pushState();
   draw();

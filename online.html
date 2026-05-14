@@ -342,8 +342,8 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 </div>
 
 <div style="margin:6px 0">
-  <label><input type="checkbox" id="mythToggle" checked onchange="mythMode=this.checked"> 神話機能</label>
-  <label><input type="checkbox" id="vassalToggle" checked onchange="vassalMode=this.checked"> 家来機能</label>
+  <label><input type="checkbox" id="mythToggle" checked onchange="hostToggle('mythMode',this.checked)"> 神話機能</label>
+  <label><input type="checkbox" id="vassalToggle" checked onchange="hostToggle('vassalMode',this.checked)"> 家来機能</label>
 </div>
 
 <div style="margin:6px 0">
@@ -653,6 +653,21 @@ function copyText(text){
   }else{
     alert(`ルームID: ${text}`);
   }
+}
+
+/* ============================================================
+   ホスト専用トグル（神話・家来機能）
+   ============================================================ */
+function hostToggle(key, val){
+  // 非ホストは操作不可（念のため元に戻す）
+  if(isOnline && !isHost){
+    document.getElementById(key==='mythMode'?'mythToggle':'vassalToggle').checked = (key==='mythMode'?mythMode:vassalMode);
+    return;
+  }
+  if(key==='mythMode')   mythMode   = val;
+  if(key==='vassalMode') vassalMode = val;
+  // オンラインならstate経由で全員に同期
+  if(isOnline) pushState();
 }
 
 /* ============================================================
@@ -1511,6 +1526,13 @@ function draw(){
 
   boardEl.className='board turn'+visualTurn;
   updateWaitingBanner();
+
+  // 非ホストはチェックボックスを無効化
+  const onlyHost = isOnline && !isHost;
+  document.getElementById('mythToggle').disabled  = onlyHost;
+  document.getElementById('vassalToggle').disabled = onlyHost;
+  document.getElementById('mythToggle').title  = onlyHost ? 'ホストのみ変更できます' : '';
+  document.getElementById('vassalToggle').title = onlyHost ? 'ホストのみ変更できます' : '';
 }
 
 /* ============================================================

@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>将棋崩し</title>
+<link rel="icon" href="favicon.ico?v=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root {
+  --bg: #d9932a;
+  --wood: #f4d9a6;
+  --wood2: #e2b36d;
+  --frame: #c6862c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  font-family: 'Hiragino Kaku Gothic ProN','Yu Gothic','MS Gothic',sans-serif;
+  padding: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+h1 {
+  font-size: 20px;
+  margin-bottom: 6px;
+  color: #fff;
+  text-shadow: 1px 1px 4px rgba(0,0,0,0.6);
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.badge {
+  background: #fff3d4;
+  border: 2px solid var(--frame);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #7a4a00;
+  white-space: nowrap;
+}
+.badge span { font-size: 18px; }
+.meter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.meter-label {
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+.meter {
+  width: 140px;
+  height: 18px;
+  background: #fff3d4;
+  border: 2px solid var(--frame);
+  border-radius: 9px;
+  overflow: hidden;
+  position: relative;
+}
+.meter-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #27ae60 0%, #f39c12 60%, #e74c3c 100%);
+  transition: width 0.3s ease;
+  border-radius: 9px;
+}
+.meter-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  color: #5a2a00;
+  pointer-events: none;
+}
+button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #888;
+  background: #fff7e0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+}
+button:hover { background: var(--wood2); }
+
+.game-wrap {
+  position: relative;
+  display: inline-block;
+}
+canvas {
+  display: block;
+  border-radius: 10px;
+  border: 4px solid var(--frame);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+}
+
+/* Overlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.72);
+  z-index: 20;
+}
+.overlay-title {
+  font-size: 36px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 0 20px #f90, 2px 2px 8px #000;
+  margin: 0;
+}
+.overlay-sub {
+  color: #ffe;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.7;
+}
+.big-btn {
+  padding: 12px 30px;
+  font-size: 17px;
+  border-radius: 10px;
+  border: 2px solid #b56000;
+  background: #e8820a;
+  color: #fff;
+  font-weight: bold;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  transition: background .15s, transform .1s;
+}
+.big-btn:hover { background: #c86800; transform: translateY(-2px); }
+.ghost-btn {
+  background: transparent;
+  border: 1px solid #aaa;
+  color: #ccc;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ghost-btn:hover { background: rgba(255,255,255,0.1); }
+
+.status {
+  color: #fff8e0;
+  font-size: 13px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  margin-bottom: 4px;
+  min-height: 18px;
+}
+
+/* Responsive scale */
+.scale-wrap {
+  transform-origin: top left;
+}
+</style>
+</head>
+<body>
+<h1>🎴 将棋崩し</h1>
+<div class="topbar">
+  <div class="badge">スコア: <span id="scoreEl">0</span>点</div>
+  <div class="badge">抜いた: <span id="removedEl">0</span> / <span id="totalEl">0</span>枚</div>
+  <div class="meter-wrap">
+    <span class="meter-label">崩れ度:</span>
+    <div class="meter" id="meterBox">
+      <div class="meter-fill" id="meterFill"></div>
+      <div class="meter-text" id="meterText">0%</div>
+    </div>
+  </div>
+  <button onclick="initGame()">🔄 新しくゲーム</button>
+  <button onclick="location.href='index.html'">🏠 メインへ</button>
+</div>
+<div class="status" id="statusMsg">ゲームを開始してください</div>
+
+<div class="game-wrap" id="gameWrap">
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay">
+    <h2 class="overlay-title" id="ovTitle">将棋崩し</h2>
+    <div class="overlay-sub" id="ovSub">
+      将棋の山を崩さずに一枚ずつ抜こう！<br><br>
+      🖱️ ドラッグで駒を引っ張る<br>
+      ← → の端まで引くと駒が抜ける<br>
+      崩れ度が 100% になるとゲームオーバー
+    </div>
+    <button class="big-btn" id="startBtn" onclick="initGame()">▶ はじめる</button>
+    <button class="ghost-btn" onclick="location.href='index.html'">← 将棋に戻る</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+/* =========================================================
+   CONSTANTS
+   ========================================================= */
+const CW = 660, CH = 480;
+const PW = 34, PH = 46;   // piece portrait dimensions
+const EXIT_ZONE = 90;      // px from edges = exit zone width
+const COLLAPSE_LIMIT = 100;
+const SETTLE_TIME = 3200;  // ms after last piece spawned
+
+const PIECE_SET = [
+  '王','王','金','金','金','金','銀','銀','銀','銀',
+  '桂','桂','桂','桂','香','香','香','香',
+  '飛','飛','角','角',
+  '歩','歩','歩','歩','歩','歩','歩','歩','歩',
+  '歩','歩','歩','歩','歩','歩','歩','歩','歩',
+];
+
+/* =========================================================
+   MATTER.JS ALIASES
+   ========================================================= */
+const {
+  Engine, Render, Runner, Bodies, Body, Composite,
+  Mouse, MouseConstraint, Events, Vector
+} = Matter;
+
+/* =========================================================
+   STATE
+   ========================================================= */
+let engine, render, runner, mcInst;
+let allPieces = [];
+let gamePhase = 'start';  // start | settling | playing | gameover | win
+let score = 0, removedCount = 0, collapsePercent = 0;
+let dragBody = null, dragStartPos = null;
+let prevPositions = new Map();
+let settleTimer = null, hoveredBody = null;
+let spawnTimers = [];
+
+/* DOM */
+const canvas     = document.getElementById('gameCanvas');
+const scoreEl    = document.getElementById('scoreEl');
+const removedEl  = document.getElementById('removedEl');
+const totalEl    = document.getElementById('totalEl');
+const meterFill  = document.getElementById('meterFill');
+const meterText  = document.getElementById('meterText');
+const meterBox   = document.getElementById('meterBox');
+const statusMsg  = document.getElementById('statusMsg');
+const overlay    = document.getElementById('overlay');
+const ovTitle    = document.getElementById('ovTitle');
+const ovSub      = document.getElementById('ovSub');
+const startBtn   = document.getElementById('startBtn');
+
+canvas.width  = CW;
+canvas.height = CH;
+
+/* responsive scale */
+function applyScale() {
+  const avail = window.innerWidth - 28;
+  if (avail < CW) {
+    const s = avail / CW;
+    document.getElementById('gameWrap').style.transform = `scale(${s})`;
+    document.getElementById('gameWrap').style.transformOrigin = 'top left';
+    document.getElementById('gameWrap').style.marginBottom = `${(CH * s) - CH}px`;
+  } else {
+    document.getElementById('gameWrap').style.transform = '';
+    document.getElementById('gameWrap').style.marginBottom = '0';
+  }
+}
+applyScale();
+window.addEventListener('resize', applyScale);
+
+/* =========================================================
+   SETUP MATTER.JS
+   ========================================================= */
+function setupMatter() {
+  /* cleanup */
+  spawnTimers.forEach(clearTimeout);
+  spawnTimers = [];
+  if (settleTimer) clearTimeout(settleTimer);
+  if (runner) Runner.stop(runner);
+  if (render) {
+    Render.stop(render);
+    render.canvas.getContext('2d').clearRect(0, 0, CW, CH);
+  }
+  if (engine) {
+    Composite.clear(engine.world, false);
+    Engine.clear(engine);
+  }
+
+  engine = Engine.create({ gravity: { x: 0, y: 1.8 } });
+
+  render = Render.create({
+    canvas,
+    engine,
+    options: {
+      width: CW, height: CH,
+      background: '#6b4423',
+      wireframes: false
+    }
+  });
+  Render.run(render);
+
+  runner = Runner.create();
+  Runner.run(runner, engine);
+
+  /* static bodies */
+  const ground = Bodies.rectangle(CW / 2, CH - 10, CW + 200, 20, {
+    isStatic: true, label: 'ground',
+    render: { fillStyle: '#4a2e0e' }
+  });
+  const wallL  = Bodies.rectangle(-30,  CH / 2, 60,  CH + 200, {
+    isStatic: true, label: 'wall', render: { visible: false }
+  });
+  const wallR  = Bodies.rectangle(CW + 30, CH / 2, 60, CH + 200, {
+    isStatic: true, label: 'wall', render: { visible: false }
+  });
+  const ceiling = Bodies.rectangle(CW / 2, -50, CW + 200, 20, {
+    isStatic: true, label: 'ceiling', render: { visible: false }
+  });
+  Composite.add(engine.world, [ground, wallL, wallR, ceiling]);
+
+  /* mouse */
+  const mouse = Mouse.create(canvas);
+  mcInst = MouseConstraint.create(engine, {
+    mouse,
+    constraint: { stiffness: 0.25, render: { visible: false } }
+  });
+  Composite.add(engine.world, mcInst);
+  render.mouse = mouse;
+
+  bindEvents();
+}
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+function bindEvents() {
+  Events.on(mcInst, 'startdrag', e => {
+    if (gamePhase !== 'playing') return;
+    const b = e.body;
+    if (!b || b.isStatic || b.isRemoved) return;
+    dragBody = b;
+    dragStartPos = { x: b.position.x, y: b.position.y };
+    recordPositions();
+    statusMsg.textContent = '← 端まで引っ張ると抜けます →';
+  });
+
+  Events.on(mcInst, 'enddrag', e => {
+    if (!dragBody || gamePhase !== 'playing') { dragBody = null; return; }
+    const b = dragBody;
+    dragBody = null;
+
+    const inExitL = b.position.x < EXIT_ZONE;
+    const inExitR = b.position.x > CW - EXIT_ZONE;
+
+    if (inExitL || inExitR) {
+      removePiece(b);
+    } else {
+      /* piece didn't make it out — check disturbance */
+      setTimeout(() => measureDisturbance(b), 350);
+      statusMsg.textContent = '届かなかった…もう少し引っ張って！';
+    }
+  });
+
+  /* custom rendering */
+  Events.on(render, 'afterRender', drawCustom);
+
+  /* hover detection + fallen piece detection */
+  Events.on(engine, 'beforeUpdate', () => {
+    if (gamePhase !== 'playing') return;
+
+    /* hover */
+    const mp = mcInst.mouse.position;
+    let found = null;
+    for (const b of allPieces) {
+      if (b.isRemoved || b === dragBody) continue;
+      const dx = mp.x - b.position.x;
+      const dy = mp.y - b.position.y;
+      if (Math.abs(dx) < PW * 0.8 && Math.abs(dy) < PH * 0.8) { found = b; break; }
+    }
+    hoveredBody = found;
+
+    /* pieces that fell off world */
+    allPieces.forEach(b => {
+      if (!b.isRemoved && b.position.y > CH + 80) {
+        b.isRemoved = true;
+        Composite.remove(engine.world, b);
+        addCollapse(18);
+        statusMsg.textContent = '駒が落ちてしまった！';
+      }
+    });
+  });
+}
+
+/* =========================================================
+   DRAWING
+   ========================================================= */
+function drawCustom() {
+  const ctx = render.context;
+
+  /* table grain */
+  drawTableGrain(ctx);
+
+  /* exit zones */
+  ctx.save();
+  ctx.fillStyle = 'rgba(80,200,80,0.18)';
+  ctx.fillRect(0, 0, EXIT_ZONE, CH - 20);
+  ctx.fillRect(CW - EXIT_ZONE, 0, EXIT_ZONE, CH - 20);
+
+  ctx.strokeStyle = 'rgba(80,200,80,0.55)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(EXIT_ZONE, 0); ctx.lineTo(EXIT_ZONE, CH - 20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CW - EXIT_ZONE, 0); ctx.lineTo(CW - EXIT_ZONE, CH - 20); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(180,255,140,0.85)';
+  ctx.fillText('← 抜く', EXIT_ZONE / 2, CH / 2 - 10);
+  ctx.fillText('抜く →', CW - EXIT_ZONE / 2, CH / 2 - 10);
+  ctx.restore();
+
+  /* pieces */
+  allPieces.forEach(b => {
+    if (b.isRemoved) return;
+    drawPiece(ctx, b,
+      b === dragBody,
+      b === hoveredBody && !dragBody && gamePhase === 'playing'
+    );
+  });
+
+  /* settling phase: show "settling" indicator */
+  if (gamePhase === 'settling') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillStyle = '#fff8c0';
+    ctx.textAlign = 'center';
+    ctx.fillText('山を積んでいます…', CW / 2, CH / 2);
+    ctx.restore();
+  }
+}
+
+function drawTableGrain(ctx) {
+  /* wood grain lines */
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+  ctx.lineWidth = 1;
+  for (let y = 20; y < CH; y += 18) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + Math.sin(y * 0.05) * 4);
+    ctx.lineTo(CW, y + Math.sin((y + 100) * 0.04) * 5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawPiece(ctx, body, isDrag, isHover) {
+  const { x, y } = body.position;
+  const a = body.angle;
+  const w = PW, h = PH;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(a);
+
+  /* shadow */
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur  = isDrag ? 14 : 4;
+  ctx.shadowOffsetX = isDrag ? 3 : 1;
+  ctx.shadowOffsetY = isDrag ? 5 : 2;
+
+  /* piece body path (pentagon) */
+  const tw = w / 2 + 1;
+  ctx.beginPath();
+  ctx.moveTo(-w / 2, h / 2);
+  ctx.lineTo( w / 2, h / 2);
+  ctx.lineTo( tw,    -h / 8);
+  ctx.lineTo( 0,     -h / 2);
+  ctx.lineTo(-tw,    -h / 8);
+  ctx.closePath();
+
+  /* fill */
+  if (isDrag)       ctx.fillStyle = '#fffbc0';
+  else if (isHover) ctx.fillStyle = '#fff3b0';
+  else              ctx.fillStyle = '#f4d9a6';
+  ctx.fill();
+
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur  = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  /* border */
+  ctx.strokeStyle = isDrag ? '#c86000' : '#8b4e10';
+  ctx.lineWidth   = isDrag ? 2.5 : 1.8;
+  ctx.stroke();
+
+  /* inner groove */
+  ctx.beginPath();
+  ctx.moveTo(-w / 2 + 3, h / 2 - 3);
+  ctx.lineTo( w / 2 - 3, h / 2 - 3);
+  ctx.lineTo( tw - 2,    -h / 8);
+  ctx.lineTo( 0,         -h / 2 + 4);
+  ctx.lineTo(-tw + 2,    -h / 8);
+  ctx.closePath();
+  ctx.strokeStyle = isDrag ? '#c86000' : '#c6862c';
+  ctx.lineWidth   = 0.8;
+  ctx.stroke();
+
+  /* character */
+  ctx.fillStyle = '#1a0800';
+  const fs = Math.floor(h * 0.4);
+  ctx.font = `bold ${fs}px 'Hiragino Kaku Gothic ProN','Yu Gothic','MS Gothic',sans-serif`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(body.pieceType, 0, h * 0.08);
+
+  ctx.restore();
+}
+
+/* =========================================================
+   SPAWN PIECES
+   ========================================================= */
+function spawnPieces() {
+  allPieces = [];
+  totalEl.textContent = PIECE_SET.length;
+  removedEl.textContent = '0';
+
+  PIECE_SET.forEach((type, i) => {
+    const t = setTimeout(() => {
+      if (gamePhase !== 'settling') return;
+
+      /* Aim for center pile */
+      const spread = 180;
+      const cx = CW / 2 + (Math.random() - 0.5) * spread;
+      const y  = -PH - Math.random() * 60;
+      const angle = (Math.random() - 0.5) * Math.PI * 0.9;
+
+      const body = Bodies.rectangle(cx, y, PW, PH, {
+        chamfer: { radius: 3 },
+        restitution: 0.12,
+        friction: 0.75,
+        frictionAir: 0.018,
+        density: 0.0025,
+        render: { visible: false },
+        label: 'piece'
+      });
+      Body.setAngle(body, angle);
+      body.pieceType  = type;
+      body.isRemoved  = false;
+
+      Composite.add(engine.world, body);
+      allPieces.push(body);
+    }, 80 + i * 90);
+    spawnTimers.push(t);
+  });
+
+  const waitMs = 80 + PIECE_SET.length * 90 + SETTLE_TIME;
+  settleTimer = setTimeout(() => {
+    if (gamePhase !== 'settling') return;
+    gamePhase = 'playing';
+    recordPositions();
+    statusMsg.textContent = '駒を引っ張って端まで持っていくと抜けます！';
+  }, waitMs);
+}
+
+/* =========================================================
+   REMOVE PIECE
+   ========================================================= */
+function removePiece(body) {
+  body.isRemoved = true;
+  Composite.remove(engine.world, body);
+  removedCount++;
+  score += 10;
+  updateHUD();
+
+  setTimeout(() => measureDisturbance(null), 450);
+
+  if (removedCount >= PIECE_SET.length) {
+    gamePhase = 'win';
+    setTimeout(showWin, 500);
+    return;
+  }
+
+  recordPositions();
+  statusMsg.textContent = `✨ +10点！残り ${PIECE_SET.length - removedCount} 枚`;
+}
+
+/* =========================================================
+   COLLAPSE DETECTION
+   ========================================================= */
+function measureDisturbance(justRemoved) {
+  if (gamePhase !== 'playing') return;
+  let moved = 0;
+  allPieces.forEach(b => {
+    if (b.isRemoved) return;
+    if (justRemoved && b.id === justRemoved.id) return;
+    const prev = prevPositions.get(b.id);
+    if (!prev) return;
+    const dx = b.position.x - prev.x;
+    const dy = b.position.y - prev.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 12) moved++;
+  });
+  if (moved > 0) addCollapse(moved * 4);
+}
+
+function addCollapse(delta) {
+  collapsePercent = Math.min(COLLAPSE_LIMIT, collapsePercent + delta);
+  updateHUD();
+  if (collapsePercent >= COLLAPSE_LIMIT) {
+    gamePhase = 'gameover';
+    setTimeout(showGameOver, 600);
+  }
+}
+
+function recordPositions() {
+  allPieces.forEach(b => {
+    if (!b.isRemoved) {
+      prevPositions.set(b.id, { x: b.position.x, y: b.position.y });
+    }
+  });
+}
+
+/* =========================================================
+   HUD
+   ========================================================= */
+function updateHUD() {
+  scoreEl.textContent   = score;
+  removedEl.textContent = removedCount;
+  totalEl.textContent   = PIECE_SET.length;
+  const pct = Math.round(collapsePercent);
+  meterFill.style.width = pct + '%';
+  meterText.textContent = pct + '%';
+  meterBox.style.borderColor = pct > 70 ? '#e74c3c' : 'var(--frame)';
+}
+
+/* =========================================================
+   GAME FLOW
+   ========================================================= */
+function initGame() {
+  /* reset state */
+  score = 0;
+  removedCount  = 0;
+  collapsePercent = 0;
+  dragBody = null;
+  dragStartPos = null;
+  prevPositions.clear();
+  hoveredBody = null;
+  gamePhase = 'settling';
+
+  overlay.style.display = 'none';
+  updateHUD();
+  statusMsg.textContent = '将棋の山を積んでいます…';
+
+  setupMatter();
+  spawnPieces();
+}
+
+function showGameOver() {
+  overlay.style.display = 'flex';
+  ovTitle.textContent   = '💥 崩れた！';
+  ovTitle.style.color   = '#ff7070';
+  ovSub.innerHTML =
+    `山が崩れてしまいました…<br><br>` +
+    `スコア: <strong style="color:#ffd700;font-size:26px">${score}</strong>点<br>` +
+    `抜いた枚数: ${removedCount} 枚 / ${PIECE_SET.length} 枚`;
+  startBtn.textContent = '🔄 もう一度';
+}
+
+function showWin() {
+  overlay.style.display = 'flex';
+  ovTitle.textContent   = '🎉 全部抜いた！';
+  ovTitle.style.color   = '#ffd700';
+  ovSub.innerHTML =
+    `見事に全部抜き取りました！<br><br>` +
+    `最終スコア: <strong style="color:#ffd700;font-size:26px">${score}</strong>点<br>` +
+    `崩れ度: ${Math.round(collapsePercent)}%`;
+  startBtn.textContent = '🔄 もう一度';
+}
+
+/* initial render without starting game */
+canvas.getContext('2d').fillStyle = '#6b4423';
+canvas.getContext('2d').fillRect(0, 0, CW, CH);
+</script>
+</body>
+</html>

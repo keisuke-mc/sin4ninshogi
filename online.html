@@ -368,6 +368,8 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 <div style="margin:6px 0">
   <button onclick="saveCode()">コード保存</button>
   <button id="loadCodeBtn" onclick="loadCode()">コード復元</button>
+  <button onclick="saveToCloud()" title="Firebaseに保存して短いコードを発行">☁️ クラウド保存</button>
+  <button onclick="loadFromCloud()" title="短いコードで局面を復元">☁️ クラウド復元</button>
 </div>
 
 <div class="layout">
@@ -1839,6 +1841,79 @@ async function tryResumeSession(){
   draw();
   hideLobby();
   return true;
+}
+
+/* ============================================================
+   クラウド保存・復元（Firebase / 短いコード）
+   ============================================================ */
+
+// 5桁の英数字コードを生成
+function makeShortCode(){
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = '';
+  for(let i = 0; i < 5; i++) id += c[Math.floor(Math.random() * c.length)];
+  return id;
+}
+
+// 古いクラウドセーブを掃除（7日以上前）
+async function cleanOldSaves(){
+  if(!db) return;
+  try{
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const snap = await db.ref('saves')
+      .orderByChild('savedAt').endAt(cutoff).once('value');
+    const removes = [];
+    snap.forEach(child => removes.push(db.ref(`saves/${child.key}`).remove()));
+    await Promise.all(removes);
+  }catch(e){ /* 無視 */ }
+}
+
+async function saveToCloud(){
+  if(!db){ alert('Firebase未設定のためクラウド保存できません'); return; }
+
+  await cleanOldSaves();
+
+  const code = makeShortCode();
+  const data = {
+    state:   makeStateJson(),
+    savedAt: Date.now()
+  };
+
+  try{
+    await db.ref(`saves/${code}`).set(data);
+    // クリップボードにコピー
+    const msg = `クラウド保存コード：${code}\n\nこのコードで局面を復元できます。\n有効期限：7日間`;
+    if(navigator.clipboard){
+      await navigator.clipboard.writeText(code).catch(()=>{});
+    }
+    alert(msg + (navigator.clipboard ? '\n\n（コードをクリップボードにコピーしました）' : ''));
+  }catch(e){
+    alert('クラウド保存に失敗しました：' + e.message);
+  }
+}
+
+async function loadFromCloud(){
+  // オンライン時はホストのみ
+  if(isOnline && !isHost){
+    alert('クラウド復元はホストのみ行えます'); return;
+  }
+  if(!db){ alert('Firebase未設定のためクラウド復元できません'); return; }
+
+  const code = prompt('クラウド保存コード（5桁）を入力してください');
+  if(!code) return;
+  const trimmed = code.trim().toUpperCase();
+  if(trimmed.length !== 5){ alert('5桁のコードを入力してください'); return; }
+
+  try{
+    const snap = await db.ref(`saves/${trimmed}`).once('value');
+    const data = snap.val();
+    if(!data){ alert('コードが見つかりません。\n有効期限切れか間違ったコードです。'); return; }
+
+    importCode(data.state);
+    alert(`コード「${trimmed}」の局面を復元しました。`);
+  }catch(e){
+    alert('クラウド復元に失敗しました：' + e.message);
+  }
 }
 
 /* ============================================================

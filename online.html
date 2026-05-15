@@ -578,6 +578,7 @@ let chatCoolTimer = null;
 let chatListener  = null;
 const CHAT_MAX    = 8;
 const CHAT_COOL   = 15000;
+let lastRematchAt = 0; // もう一戦の重複発火防止
 /* ============================================================
    ゲーム変数
    ============================================================ */
@@ -1255,26 +1256,30 @@ function listenRoom(){
     }
 
     if(data.winner !== undefined){
-      if(data.winner === null){
-        // もう一戦：勝利画面を閉じる（stateListenerで盤面は自動更新される）
-        document.getElementById('winOverlay').style.display = 'none';
-        // 非ホストはstateを即取得して反映
-        if(!isHost && stateRef){
-          stateRef.once('value').then(snap => {
-            const raw = snap.val();
-            if(!raw) return;
-            const d = JSON.parse(raw);
-            board = d.board; hands = d.hands; alive = d.alive; turn = d.turn;
-            mythMode   = d.mythMode   ?? true;
-            vassalMode = d.vassalMode ?? true;
-            lastMove   = d.lastMove   ?? null;
-            if(d.names) roomNames = d.names;
-            sel = null; selHand = null; marks = [];
-            draw();
-          });
-        }
-      }else{
-        showWinOverlay(data.winner);
+      showWinOverlay(data.winner);
+    }
+
+    // もう一戦：rematchAtの変化で非ホストに通知
+    if(data.rematchAt && data.rematchAt !== lastRematchAt && !isHost){
+      lastRematchAt = data.rematchAt;
+      const winEl = document.getElementById('winOverlay');
+      if(winEl && winEl.style.display !== 'none'){
+        winEl.style.display = 'none';
+      }
+      // 最新盤面を即取得して反映
+      if(stateRef){
+        stateRef.once('value').then(snap => {
+          const raw = snap.val();
+          if(!raw) return;
+          const d = JSON.parse(raw);
+          board = d.board; hands = d.hands; alive = d.alive; turn = d.turn;
+          mythMode   = d.mythMode   ?? true;
+          vassalMode = d.vassalMode ?? true;
+          lastMove   = d.lastMove   ?? null;
+          if(d.names) roomNames = d.names;
+          sel = null; selHand = null; marks = [];
+          draw();
+        });
       }
     }
   });
@@ -1444,12 +1449,13 @@ async function winRematch(){
   placeInitial();
   draw();
 
-  // Firebase側を待機中・勝者なしにリセットしてゲーム再開
+  // rematchAtタイムスタンプで非ホストに通知、winnerフィールドを削除
   await roomRef.update({
-    winner: null,
-    status: 'playing',
-    chat:   null
+    status:    'playing',
+    rematchAt: Date.now(),
+    chat:      null
   });
+  await db.ref(`rooms/${roomId}/winner`).remove();
   await pushState();
 }
 

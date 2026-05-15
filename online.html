@@ -368,7 +368,7 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 #chatHistory li{
   color:#fff;
   font-size:13px;
-  opacity:0.6;
+  opacity:0.92;
   display:flex;
   text-shadow:1px 1px 3px #000,0 0 6px #000;
   line-height:1.4;
@@ -1256,8 +1256,23 @@ function listenRoom(){
 
     if(data.winner !== undefined){
       if(data.winner === null){
-        // もう一戦でリセットされた
+        // もう一戦：勝利画面を閉じる（stateListenerで盤面は自動更新される）
         document.getElementById('winOverlay').style.display = 'none';
+        // 非ホストはstateを即取得して反映
+        if(!isHost && stateRef){
+          stateRef.once('value').then(snap => {
+            const raw = snap.val();
+            if(!raw) return;
+            const d = JSON.parse(raw);
+            board = d.board; hands = d.hands; alive = d.alive; turn = d.turn;
+            mythMode   = d.mythMode   ?? true;
+            vassalMode = d.vassalMode ?? true;
+            lastMove   = d.lastMove   ?? null;
+            if(d.names) roomNames = d.names;
+            sel = null; selHand = null; marks = [];
+            draw();
+          });
+        }
       }else{
         showWinOverlay(data.winner);
       }
@@ -1392,7 +1407,7 @@ function showWinOverlay(winner){
   // ロビーボタン：10秒後に有効化
   lobbyBtn.disabled = true;
   rematchBtn.style.display = (isOnline && isHost) ? 'inline-block' : 'none';
-  rematchBtn.disabled = true;
+  rematchBtn.disabled = false; // もう一戦はすぐ押せる
 
   let sec = 10;
   countdown.textContent = `${sec}秒後にボタンが有効になります`;

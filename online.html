@@ -341,6 +341,74 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
   z-index:500;
   pointer-events:none;
 }
+
+/* =====================
+   チャット
+   ===================== */
+#chatArea{
+  position:fixed;
+  left:10px;
+  bottom:10px;
+  width:260px;
+  z-index:400;
+  display:none;
+}
+#chatHistory{
+  list-style:none;
+  margin:0 0 4px;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+#chatHistory li{
+  color:#fff;
+  font-size:13px;
+  opacity:0.6;
+  display:flex;
+  text-shadow:1px 1px 3px #000,0 0 6px #000;
+  line-height:1.4;
+  word-break:break-all;
+}
+.chat-name{
+  min-width:5.5em;
+  text-align:right;
+  flex-shrink:0;
+}
+.chat-colon{ margin:0 3px; flex-shrink:0; }
+.chat-msg{ flex:1; }
+#chatInputRow{
+  display:flex;
+  gap:4px;
+}
+#chatInput{
+  flex:1;
+  padding:5px 7px;
+  font-size:13px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:rgba(0,0,0,0.5);
+  color:#fff;
+  outline:none;
+}
+#chatInput::placeholder{ color:#aaa; }
+#chatSendBtn{
+  padding:4px 7px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:rgba(0,0,0,0.5);
+  color:#fff;
+  cursor:pointer;
+  font-size:14px;
+}
+#chatSendBtn:disabled{ opacity:0.4; cursor:default; }
+#chatCoolBar{
+  height:2px;
+  background:#e8820a;
+  border-radius:1px;
+  width:0%;
+  margin-top:2px;
+}
 </style>
 </head>
 <body>
@@ -391,6 +459,17 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 
 <!-- 待機バナー -->
 <div id="waitingBanner">⏳ 相手の手番です...</div>
+
+<!-- チャット -->
+<div id="chatArea">
+  <ul id="chatHistory"></ul>
+  <div id="chatInputRow">
+    <input id="chatInput" maxlength="40" placeholder="メッセージ..."
+      onkeydown="if(event.key==='Enter')sendChat()">
+    <button id="chatSendBtn" onclick="sendChat()">📤</button>
+  </div>
+  <div id="chatCoolBar"></div>
+</div>
 
 <!-- ===== ロビーオーバーレイ ===== -->
 <div id="lobby">
@@ -483,6 +562,14 @@ const PLAYER_HOME_RC = [
 let stampCooldownUntil = 0;  // ms timestamp
 let stampCooldownTimer = null;
 let stampListener      = null;
+
+/* チャット */
+let chatEnabled   = false;
+let chatCoolUntil = 0;
+let chatCoolTimer = null;
+let chatListener  = null;
+const CHAT_MAX    = 8;
+const CHAT_COOL   = 15000;
 /* ============================================================
    ゲーム変数
    ============================================================ */
@@ -575,6 +662,12 @@ function renderLobby(screen, data){
       </div>
       ${buildPlayerSlots(count, names, data.uidOrder || currentUidOrder)}
       <p class="status-msg">プレイヤー <strong>${count} / 4</strong></p>
+      ${isHost
+        ? `<label style="font-size:13px;display:flex;align-items:center;gap:6px;justify-content:center;margin:8px 0">
+             <input type="checkbox" id="chatEnableCheck" ${chatEnabled?'checked':''} onchange="hostToggleChat(this.checked)">
+             💬 チャット機能を有効にする
+           </label>` : ''
+      }
       ${isHost
         ? `<button class="lb-btn lb-primary" ${count < 4 ? 'disabled' : ''} onclick="hostStartGame()">
              🎮 ゲーム開始${count < 4 ? ` (あと${4-count}人)` : ''}
@@ -762,6 +855,112 @@ function copyText(text){
   }else{
     alert(`ルームID: ${text}`);
   }
+}
+
+/* ============================================================
+   チャット機能
+   ============================================================ */
+
+// ホストがチャットON/OFF切り替え
+async function hostToggleChat(val){
+  if(!isHost || !db) return;
+  chatEnabled = val;
+  await roomRef.update({ chatEnabled: val });
+  updateChatUI();
+}
+
+// チャットリスナーを開始
+function listenChat(){
+  if(!db || !roomId) return;
+  if(chatListener) db.ref(`rooms/${roomId}/chat`).off('value', chatListener);
+  chatListener = db.ref(`rooms/${roomId}/chat`).on('value', snap => {
+    const data = snap.val();
+    const msgs = data ? Object.values(data).sort((a,b) => a.ts - b.ts) : [];
+    renderChat(msgs);
+  });
+}
+
+// チャット履歴を描画
+function renderChat(msgs){
+  const ul = document.getElementById('chatHistory');
+  if(!ul) return;
+  ul.innerHTML = '';
+  // 最新8件だけ表示
+  const recent = msgs.slice(-CHAT_MAX);
+  recent.forEach(m => {
+    const li = document.createElement('li');
+    li.innerHTML =
+      `<span class="chat-name">${escHtml(m.name)}</span>` +
+      `<span class="chat-colon">:</span>` +
+      `<span class="chat-msg">${escHtml(m.text)}</span>`;
+    ul.appendChild(li);
+  });
+}
+
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// チャット送信
+async function sendChat(){
+  if(!chatEnabled || !db || !roomId) return;
+  if(Date.now() < chatCoolUntil) return;
+
+  const input = document.getElementById('chatInput');
+  if(!input) return;
+  const text = input.value.trim();
+  if(!text) return;
+
+  const name = (myPlayer !== null && roomNames[myPlayer])
+    ? roomNames[myPlayer] : `P${(myPlayer??0)+1}`;
+
+  // Firebaseに追記
+  await db.ref(`rooms/${roomId}/chat`).push({
+    name, text, ts: Date.now()
+  });
+
+  // 履歴が8件を超えたら古いものを削除
+  const snap = await db.ref(`rooms/${roomId}/chat`).once('value');
+  const all = snap.val();
+  if(all){
+    const keys = Object.keys(all).sort((a,b) => all[a].ts - all[b].ts);
+    if(keys.length > CHAT_MAX){
+      const removes = keys.slice(0, keys.length - CHAT_MAX);
+      await Promise.all(removes.map(k => db.ref(`rooms/${roomId}/chat/${k}`).remove()));
+    }
+  }
+
+  input.value = '';
+  startChatCooldown();
+}
+
+// チャットクールダウン
+function startChatCooldown(){
+  chatCoolUntil = Date.now() + CHAT_COOL;
+  const btn  = document.getElementById('chatSendBtn');
+  const bar  = document.getElementById('chatCoolBar');
+  if(btn) btn.disabled = true;
+
+  let elapsed = 0;
+  if(chatCoolTimer) clearInterval(chatCoolTimer);
+  chatCoolTimer = setInterval(() => {
+    elapsed += 100;
+    if(bar) bar.style.width = Math.min(elapsed / (CHAT_COOL / 100), 100) + '%';
+    if(elapsed >= CHAT_COOL){
+      clearInterval(chatCoolTimer);
+      chatCoolTimer = null;
+      if(bar) bar.style.width = '0%';
+      if(btn) btn.disabled = false;
+      chatCoolUntil = 0;
+    }
+  }, 100);
+}
+
+// チャットエリアの表示・非表示を更新
+function updateChatUI(){
+  const area = document.getElementById('chatArea');
+  if(!area) return;
+  area.style.display = (isOnline && chatEnabled) ? 'block' : 'none';
 }
 
 /* ============================================================
@@ -1003,6 +1202,12 @@ function listenRoom(){
     // uidOrderをローカル保持（並び替えUI用）
     if(data.uidOrder) currentUidOrder = data.uidOrder;
 
+    // チャット有効フラグを同期
+    if(data.chatEnabled !== undefined){
+      chatEnabled = data.chatEnabled;
+      updateChatUI();
+    }
+
     const lobbyVisible = document.getElementById('lobby').style.display !== 'none';
 
     if(data.status === 'waiting' && lobbyVisible){
@@ -1067,16 +1272,17 @@ function listenRoom(){
 
   /* スタンプ受信リスナー */
   if(stampListener){ db.ref(`rooms/${roomId}/stamp`).off('value', stampListener); }
-  const stampListenStart = Date.now(); // リスナー開始時刻を記録
+  const stampListenStart = Date.now();
   stampListener = db.ref(`rooms/${roomId}/stamp`).on('value', snap => {
     const d = snap.val();
     if(!d) return;
-    // リスナー開始より古いスタンプは無視（接続時の初回発火対策）
     if(!d.ts || d.ts <= stampListenStart) return;
-    // 自分が送ったスタンプは既にローカル表示済みなので無視
     if(d.uid === myUid) return;
     showStampOnBoard(d.player, d.stampIdx);
   });
+
+  /* チャットリスナー */
+  listenChat();
 }
 async function hostStartGame(){
   if(!isHost || !db) return;
@@ -1117,6 +1323,10 @@ async function leaveRoom(){
   }catch(e){ /* 無視 */ }
   if(stateListener && stateRef)  stateRef.off('value', stateListener);
   if(roomListener  && roomRef)   roomRef.off('value', roomListener);
+  if(chatListener && db && roomId) db.ref(`rooms/${roomId}/chat`).off('value', chatListener);
+  chatListener = null;
+  chatEnabled  = false;
+  updateChatUI();
   roomId = null; myPlayer = null; isHost = false; isOnline = false;
   roomRef = null; stateRef = null; stateListener = null; roomListener = null;
   updateOnlineBadge(false);

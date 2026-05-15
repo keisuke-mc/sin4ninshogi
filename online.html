@@ -1062,12 +1062,15 @@ function listenRoom(){
 
   /* スタンプ受信リスナー */
   if(stampListener){ db.ref(`rooms/${roomId}/stamp`).off('value', stampListener); }
+  const stampListenStart = Date.now(); // リスナー開始時刻を記録
   stampListener = db.ref(`rooms/${roomId}/stamp`).on('value', snap => {
     const d = snap.val();
     if(!d) return;
-    if(d.uid !== myUid){
-      showStampOnBoard(d.player, d.stampIdx);
-    }
+    // リスナー開始より古いスタンプは無視（接続時の初回発火対策）
+    if(!d.ts || d.ts <= stampListenStart) return;
+    // 自分が送ったスタンプは既にローカル表示済みなので無視
+    if(d.uid === myUid) return;
+    showStampOnBoard(d.player, d.stampIdx);
   });
 }
 async function hostStartGame(){
@@ -1563,6 +1566,7 @@ function sendStamp(stampIdx){
   document.getElementById('stampPickerPopup').classList.remove('open');
 
   const sender = (isOnline && myPlayer !== null) ? myPlayer : 2;
+  const ts = Date.now();
 
   // ローカル即時表示
   showStampOnBoard(sender, stampIdx);
@@ -1573,7 +1577,7 @@ function sendStamp(stampIdx){
       player:   sender,
       stampIdx: stampIdx,
       uid:      myUid,
-      ts:       Date.now()
+      ts:       ts
     });
   }
 

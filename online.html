@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋</title>
+<title>真・四人将棋　オンライン</title>
 <link rel="icon" href="favicon.ico?v=1">
 <link rel="stylesheet" href="piece.css">
 <link rel="stylesheet" href="hikari.css">
@@ -53,15 +53,6 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 .last-from{background:#ff6b6b!important}
 .last-to{background:#6bcb77!important}
 .move{background:var(--move)!important}
-
-/* スタンプオーバーレイ（boardの上に絶対配置） */
-#stampOverlay{
-  grid-column:2;
-  grid-row:1 / span 2;
-  position:relative;
-  pointer-events:none;
-  z-index:200;
-}
 
 .p0{transform:rotate(180deg)}
 .p1{transform:rotate(270deg)}
@@ -386,7 +377,6 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
   <div class="hand" id="hand0"></div>
   <div class="hand" id="hand1"></div>
   <div class="board" id="board"></div>
-  <div id="stampOverlay"></div>
   <div class="hand" id="hand3"></div>
   <div class="hand" id="hand2"></div>
 </div>
@@ -1519,29 +1509,32 @@ function showStampOnBoard(playerIdx, stampIdx){
   const [br, bc] = PLAYER_HOME_RC[playerIdx];
   const [vr, vc] = boardToView(br, bc);
 
+  // 盤面要素の画面上の位置を取得
+  const boardRect = boardEl.getBoundingClientRect();
+
   // セルサイズ: 40px + gap 2px = 42px, boardパディング 6px
   const CELL = 42, PAD = 6, HALF_CELL = 20;
-  const x = PAD + vc * CELL + HALF_CELL;
-  const y = PAD + vr * CELL + HALF_CELL;
+  // スクロール量を加味してfixed座標に変換
+  const x = boardRect.left + window.scrollX + PAD + vc * CELL + HALF_CELL;
+  const y = boardRect.top  + window.scrollY + PAD + vr * CELL + HALF_CELL;
 
   const SIZE = 80;
   const el = document.createElement('img');
   el.src = STAMPS[stampIdx].url;
   el.alt = STAMPS[stampIdx].label;
   el.style.cssText = `
-    position:absolute;
-    left:${x}px; top:${y}px;
+    position:fixed;
+    left:${boardRect.left + PAD + vc * CELL + HALF_CELL}px;
+    top:${boardRect.top  + PAD + vr * CELL + HALF_CELL}px;
     width:${SIZE}px; height:${SIZE}px;
     object-fit:contain;
     transform:translate(-50%,-50%);
     pointer-events:none;
-    z-index:300;
+    z-index:9999;
     filter:drop-shadow(2px 3px 6px rgba(0,0,0,0.6));
     animation:stampPop .25s ease, stampFade 2s forwards;
   `;
-  // boardElではなくstampOverlayに追加（draw()のinnerHTML=''で消えないため）
-  const overlay = document.getElementById('stampOverlay');
-  if(overlay) overlay.appendChild(el);
+  document.body.appendChild(el);
   setTimeout(() => el.remove(), 2000);
 }
 

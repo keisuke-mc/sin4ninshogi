@@ -352,6 +352,10 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
   width:260px;
   z-index:400;
   display:none;
+  background:rgba(0,0,0,0.45);
+  border-radius:10px;
+  padding:8px;
+  backdrop-filter:blur(2px);
 }
 #chatHistory{
   list-style:none;
@@ -454,7 +458,11 @@ hr{border:none;border-top:1px solid #ddd;margin:14px 0}
 <!-- 勝利オーバーレイ -->
 <div id="winOverlay">
   <div class="win-msg" id="winMsg">🏆 P1 の勝ち！</div>
-  <button onclick="document.getElementById('winOverlay').style.display='none';showLobby('main')">ロビーへ戻る</button>
+  <div id="winCountdown" style="font-size:16px;color:#fff;opacity:0.8"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button id="winLobbyBtn" onclick="winGoLobby()" disabled>ロビーへ戻る</button>
+    <button id="winRematchBtn" onclick="winRematch()" style="display:none;background:#e8820a;color:#fff;border-color:#b56000">🔄 もう一戦</button>
+  </div>
 </div>
 
 <!-- 待機バナー -->
@@ -1247,7 +1255,12 @@ function listenRoom(){
     }
 
     if(data.winner !== undefined){
-      showWinOverlay(data.winner);
+      if(data.winner === null){
+        // もう一戦でリセットされた
+        document.getElementById('winOverlay').style.display = 'none';
+      }else{
+        showWinOverlay(data.winner);
+      }
     }
   });
 
@@ -1366,9 +1379,63 @@ function updateWaitingBanner(){
 }
 
 function showWinOverlay(winner){
-  const el = document.getElementById('winOverlay');
-  document.getElementById('winMsg').textContent = `🏆 P${winner+1} の勝ち！`;
+  const el      = document.getElementById('winOverlay');
+  const msgEl   = document.getElementById('winMsg');
+  const lobbyBtn  = document.getElementById('winLobbyBtn');
+  const rematchBtn = document.getElementById('winRematchBtn');
+  const countdown  = document.getElementById('winCountdown');
+
+  const winnerName = (isOnline && roomNames[winner]) ? roomNames[winner] : `P${winner+1}`;
+  msgEl.textContent = `🏆 ${winnerName} の勝ち！`;
   el.style.display = 'flex';
+
+  // ロビーボタン：10秒後に有効化
+  lobbyBtn.disabled = true;
+  rematchBtn.style.display = (isOnline && isHost) ? 'inline-block' : 'none';
+  rematchBtn.disabled = true;
+
+  let sec = 10;
+  countdown.textContent = `${sec}秒後にボタンが有効になります`;
+  const cd = setInterval(() => {
+    sec--;
+    if(sec > 0){
+      countdown.textContent = `${sec}秒後にボタンが有効になります`;
+    }else{
+      clearInterval(cd);
+      countdown.textContent = '';
+      lobbyBtn.disabled   = false;
+      rematchBtn.disabled = false;
+    }
+  }, 1000);
+}
+
+function winGoLobby(){
+  document.getElementById('winOverlay').style.display = 'none';
+  leaveRoom();
+  showLobby('main');
+}
+
+async function winRematch(){
+  if(!isHost) return;
+  document.getElementById('winOverlay').style.display = 'none';
+
+  // 盤面リセット
+  board = [...Array(N)].map(()=>Array(N).fill(null));
+  hands = [[],[],[],[]];
+  alive = [true,true,true,true];
+  turn  = 0;
+  history = [];
+  lastMove = null;
+  placeInitial();
+  draw();
+
+  // Firebase側を待機中・勝者なしにリセットしてゲーム再開
+  await roomRef.update({
+    winner: null,
+    status: 'playing',
+    chat:   null
+  });
+  await pushState();
 }
 
 /* ============================================================

@@ -464,11 +464,15 @@ const STAMPS = [
 ];
 
 // 各プレイヤーの陣地中心（盤面座標）
+// P0: 上側（row 0-2, col 3-11）の中心
+// P1: 右側（row 3-11, col 12-14）の中心
+// P2: 下側（row 12-14, col 3-11）の中心
+// P3: 左側（row 3-11, col 0-2）の中心
 const PLAYER_HOME_RC = [
-  [1,  7],  // P0: 上辺中央
-  [7,  13], // P1: 右辺中央
-  [13, 7],  // P2: 下辺中央
-  [7,  1],  // P3: 左辺中央
+  [1,  7],  // P0: 上辺
+  [7,  13], // P1: 右辺
+  [13, 7],  // P2: 下辺
+  [7,  1],  // P3: 左辺
 ];
 
 let stampCooldownUntil = 0;  // ms timestamp
@@ -1495,23 +1499,34 @@ function boardToView(r, c){
 
 /* スタンプを盤上に表示（ローカル描画） */
 function showStampOnBoard(playerIdx, stampIdx){
+  if(playerIdx < 0 || playerIdx > 3) return;
+  if(!STAMPS[stampIdx]) return;
+
   const [br, bc] = PLAYER_HOME_RC[playerIdx];
   const [vr, vc] = boardToView(br, bc);
 
   // セルサイズ: 40px + gap 2px = 42px, boardパディング 6px
-  const CELL = 42, PAD = 6;
-  const x = PAD + vc * CELL + 20; // px (左端基準)
-  const y = PAD + vr * CELL + 20; // px (上端基準)
+  // セル中心 = PAD + index * CELL + CELL/2
+  const CELL = 42, PAD = 6, HALF_CELL = 20;
+  const x = PAD + vc * CELL + HALF_CELL;
+  const y = PAD + vr * CELL + HALF_CELL;
 
+  const SIZE = 72;
   const el = document.createElement('img');
-  el.className   = 'stamp-display';
-  el.src         = STAMPS[stampIdx].url;
-  el.alt         = STAMPS[stampIdx].label;
-  el.style.left  = x + 'px';
-  el.style.top   = y + 'px';
-  el.style.width  = '80px';
-  el.style.height = '80px';
-  el.style.objectFit = 'contain';
+  el.className = 'stamp-display';
+  el.src    = STAMPS[stampIdx].url;
+  el.alt    = STAMPS[stampIdx].label;
+  el.style.cssText = `
+    position:absolute;
+    left:${x}px; top:${y}px;
+    width:${SIZE}px; height:${SIZE}px;
+    object-fit:contain;
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+    z-index:300;
+    filter:drop-shadow(2px 3px 6px rgba(0,0,0,0.6));
+    animation:stampPop .25s ease, stampFade 2s forwards;
+  `;
   boardEl.appendChild(el);
   setTimeout(() => el.remove(), 2000);
 }
@@ -1693,24 +1708,39 @@ function exportCode(){
 function importCode(code){
   try{
     const d = JSON.parse(decodeURIComponent(escape(atob(code))));
-    // 必須フィールドの存在チェック
     if(!d.board || !d.hands || !d.alive || d.turn === undefined){
       alert('コードが壊れています'); return;
     }
-    board      = d.board;
-    hands      = d.hands;
-    alive      = d.alive;
-    turn       = d.turn;
-    mythMode   = d.mythMode   ?? true;
-    vassalMode = d.vassalMode ?? true;
-    lastMove   = d.lastMove   ?? null;   // ★ ハイライト状態も復元
-    if(d.names) roomNames = d.names;     // ★ 名前も復元
-    document.getElementById('mythToggle').checked  = mythMode;
-    document.getElementById('vassalToggle').checked = vassalMode;
-    sel = null; selHand = null; marks = []; history = [];
-    draw();
-    if(isOnline) pushState();            // ★ 全員に同期
+    applyImportedState(d);
   }catch(e){ alert('コードが壊れています'); }
+}
+
+// クラウド保存（JSON文字列）からの復元
+function importJson(jsonStr){
+  try{
+    const d = JSON.parse(jsonStr);
+    if(!d.board || !d.hands || !d.alive || d.turn === undefined){
+      alert('データが壊れています'); return;
+    }
+    applyImportedState(d);
+  }catch(e){ alert('データが壊れています'); }
+}
+
+// 共通の状態適用処理
+function applyImportedState(d){
+  board      = d.board;
+  hands      = d.hands;
+  alive      = d.alive;
+  turn       = d.turn;
+  mythMode   = d.mythMode   ?? true;
+  vassalMode = d.vassalMode ?? true;
+  lastMove   = d.lastMove   ?? null;
+  if(d.names) roomNames = d.names;
+  document.getElementById('mythToggle').checked  = mythMode;
+  document.getElementById('vassalToggle').checked = vassalMode;
+  sel = null; selHand = null; marks = []; history = [];
+  draw();
+  if(isOnline) pushState();
 }
 
 function saveCode(){
@@ -1874,6 +1904,7 @@ async function saveToCloud(){
   await cleanOldSaves();
 
   const code = makeShortCode();
+  // クラウド保存はJSON文字列のまま保存（Base64不要）
   const data = {
     state:   makeStateJson(),
     savedAt: Date.now()
@@ -1881,19 +1912,23 @@ async function saveToCloud(){
 
   try{
     await db.ref(`saves/${code}`).set(data);
-    // クリップボードにコピー
-    const msg = `クラウド保存コード：${code}\n\nこのコードで局面を復元できます。\n有効期限：7日間`;
+    // クリップボードコピーはalertより前に実行（alertがブロックする前に）
+    let copied = false;
     if(navigator.clipboard){
-      await navigator.clipboard.writeText(code).catch(()=>{});
+      try{
+        await navigator.clipboard.writeText(code);
+        copied = true;
+      }catch(e){ copied = false; }
     }
-    alert(msg + (navigator.clipboard ? '\n\n（コードをクリップボードにコピーしました）' : ''));
+    const msg = `クラウド保存コード：${code}\n\nこのコードで局面を復元できます。\n有効期限：7日間`
+      + (copied ? '\n\n（コードをクリップボードにコピーしました）' : '');
+    alert(msg);
   }catch(e){
     alert('クラウド保存に失敗しました：' + e.message);
   }
 }
 
 async function loadFromCloud(){
-  // オンライン時はホストのみ
   if(isOnline && !isHost){
     alert('クラウド復元はホストのみ行えます'); return;
   }
@@ -1909,7 +1944,8 @@ async function loadFromCloud(){
     const data = snap.val();
     if(!data){ alert('コードが見つかりません。\n有効期限切れか間違ったコードです。'); return; }
 
-    importCode(data.state);
+    // クラウド保存はJSON文字列なのでimportJsonを使う
+    importJson(data.state);
     alert(`コード「${trimmed}」の局面を復元しました。`);
   }catch(e){
     alert('クラウド復元に失敗しました：' + e.message);

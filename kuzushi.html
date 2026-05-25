@@ -1678,12 +1678,18 @@ function clickCell(r,c){
       if(mythMode && p.t==='家' && inEnemyCamp(p.o,r,c)){
         if(confirm('天使になりますか？')) p.t='天';
       }
-      /* 成り（打ち駒が敵陣にある状態での移動 → dropped削除前に判定） */
-      if(promoteMap[p.t] && p.dropped){
-        if(inEnemyCamp(p.o, fromR, fromC) || inEnemyCamp(p.o,r,c)){
-          if(confirm('成る？')) p.t=promoteMap[p.t];
-        }
+      /* 成り判定
+         ルール: 移動元 または 移動先 が敵陣なら成れる
+         打った瞬間（clickHand）には判定がないためdropped有無は無関係 */
+      const canPromote =
+        promoteMap[p.t] &&
+        (inEnemyCamp(p.o, fromR, fromC) || inEnemyCamp(p.o, r, c));
+
+      if(canPromote){
+        if(confirm('成る？')) p.t = promoteMap[p.t];
       }
+
+      // dropped フラグを削除（移動済みのマーク）
       if(p.dropped) delete p.dropped;
 
       if(cap){
@@ -1695,13 +1701,6 @@ function clickCell(r,c){
           if(vassalMode) hands[turn].push('家');
         }else{
           hands[turn].push(unpromote[cap.t]||cap.t);
-        }
-      }
-
-      /* 成り（通常移動：移動元または移動先が敵陣） */
-      if(promoteMap[p.t] && !p.dropped){
-        if(inEnemyCamp(p.o, fromR, fromC) || inEnemyCamp(p.o,r,c)){
-          if(confirm('成る？')) p.t=promoteMap[p.t];
         }
       }
 

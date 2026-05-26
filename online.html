@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋　オンライン</title>
+<title>真・四人将棋</title>
 <link rel="icon" href="favicon.ico?v=1">
 <link rel="stylesheet" href="piece.css">
 <link rel="stylesheet" href="hikari.css">
@@ -512,7 +512,7 @@ const FIREBASE_CONFIG = {
    ★★★  オフラインページのURL（ここを書き換えてください）  ★★★
    例: const OFFLINE_URL = "https://example.com/offline/";
    ============================================================ */
-const OFFLINE_URL = "https://keisuke-mc.github.io/sin4ninshogi/";
+const OFFLINE_URL = "./offline/index.html";
 
 /* ============================================================
    Firebase 初期化
@@ -545,14 +545,14 @@ const unpromote  = {と:'歩',杏:'香',圭:'桂',全:'銀',馬:'角',龍:'飛'}
    ★★★ スタンプ画像のURLをここに設定してください ★★★
    ============================================================ */
 const STAMPS = [
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/1.png', label: 'ふん！' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/2.png', label: '助けて' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/3.png', label: 'わかった' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/4.png', label: 'うーん...' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/5.png', label: '怒' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/6.png', label: '?' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/7.png', label: 'ガハハ' },
-  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/8.png', label: '・・・' },
+  { url: 'stamps/stamp1.png', label: 'スタンプ1' },
+  { url: 'stamps/stamp2.png', label: 'スタンプ2' },
+  { url: 'stamps/stamp3.png', label: 'スタンプ3' },
+  { url: 'stamps/stamp4.png', label: 'スタンプ4' },
+  { url: 'stamps/stamp5.png', label: 'スタンプ5' },
+  { url: 'stamps/stamp6.png', label: 'スタンプ6' },
+  { url: 'stamps/stamp7.png', label: 'スタンプ7' },
+  { url: 'stamps/stamp8.png', label: 'スタンプ8' },
 ];
 
 // 各プレイヤーの陣地中心（盤面座標）
@@ -1256,7 +1256,10 @@ function listenRoom(){
     }
 
     if(data.winner !== undefined){
-      showWinOverlay(data.winner);
+      // もう一戦が押された直後はwinnerが残っていても無視
+      if(!data.rematchAt || data.rematchAt !== lastRematchAt){
+        showWinOverlay(data.winner);
+      }
     }
 
     // もう一戦：rematchAtの変化で非ホストに通知
@@ -1437,6 +1440,9 @@ function winGoLobby(){
 
 async function winRematch(){
   if(!isHost) return;
+  const now = Date.now();
+  lastRematchAt = now; // ホスト自身も更新済みとしてマーク（showWinOverlayの再発火を防ぐ）
+
   document.getElementById('winOverlay').style.display = 'none';
 
   // 盤面リセット
@@ -1449,13 +1455,13 @@ async function winRematch(){
   placeInitial();
   draw();
 
-  // rematchAtタイムスタンプで非ホストに通知、winnerフィールドを削除
+  // winner を先に削除してから rematchAt を書き込む
+  await db.ref(`rooms/${roomId}/winner`).remove();
   await roomRef.update({
     status:    'playing',
-    rematchAt: Date.now(),
+    rematchAt: now,
     chat:      null
   });
-  await db.ref(`rooms/${roomId}/winner`).remove();
   await pushState();
 }
 
@@ -1642,7 +1648,7 @@ function clickCell(r,c){
   if(selHand){
     if(marks.some(m=>m[0]===r&&m[1]===c)){
       save();
-      board[r][c]={t:selHand.t, o:turn, dropped:true};
+      board[r][c]={t:selHand.t, o:turn, droppedAt:{r,c}};
       hands[turn].splice(selHand.i, 1);
       lastMove = { from: null, to: {r, c} };
       selHand=null; marks=[];
@@ -1660,8 +1666,9 @@ function clickCell(r,c){
       save();
       let p   = board[sel.r][sel.c];
       let cap = board[r][c];
-      lastMove = { from: {r: sel.r, c: sel.c}, to: {r, c} };
-      board[r][c] = p; board[sel.r][sel.c] = null;
+      const fromR = sel.r, fromC = sel.c; // 移動元を先に保存
+      lastMove = { from: {r: fromR, c: fromC}, to: {r, c} };
+      board[r][c] = p; board[fromR][fromC] = null;
 
       /* 王→神 */
       if(mythMode && p.t==='王' && inEnemyCamp(p.o,r,c)){
@@ -1671,11 +1678,19 @@ function clickCell(r,c){
       if(mythMode && p.t==='家' && inEnemyCamp(p.o,r,c)){
         if(confirm('天使になりますか？')) p.t='天';
       }
-      /* 成り（打ち駒は成れない） */
-      if(promoteMap[p.t] && inEnemyCamp(p.o,r,c) && p.dropped){
-        if(confirm('成る？')) p.t=promoteMap[p.t];
+      /* 成り判定
+         「移動元が敵陣」「移動先が敵陣」「打った位置が敵陣（droppedAt残留中）」のいずれかで成れる */
+      const wasDroppedInCamp = p.droppedAt && inEnemyCamp(p.o, p.droppedAt.r, p.droppedAt.c);
+      const canPromote =
+        promoteMap[p.t] &&
+        (inEnemyCamp(p.o, fromR, fromC) || inEnemyCamp(p.o, r, c) || wasDroppedInCamp);
+
+      if(canPromote){
+        if(confirm('成る？')) p.t = promoteMap[p.t];
       }
-      if(p.dropped) delete p.dropped;
+
+      // droppedAtフラグを削除（1回移動したら消す）
+      if(p.droppedAt) delete p.droppedAt;
 
       if(cap){
         if(cap.t==='神'||cap.t==='王'){
@@ -1687,11 +1702,6 @@ function clickCell(r,c){
         }else{
           hands[turn].push(unpromote[cap.t]||cap.t);
         }
-      }
-
-      /* 成り（通常移動） */
-      if(promoteMap[p.t] && inEnemyCamp(p.o,r,c) && !p.dropped){
-        if(confirm('成る？')) p.t=promoteMap[p.t];
       }
 
       sel=null; marks=[];

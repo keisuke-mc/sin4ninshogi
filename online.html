@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真・四人将棋 オンライン</title>
+<title>真・四人将棋　オンライン</title>
 <link rel="icon" href="favicon.ico?v=1">
 <link rel="stylesheet" href="piece.css">
 <link rel="stylesheet" href="hikari.css">
@@ -110,6 +110,37 @@ button{padding:6px 10px;border-radius:6px;border:1px solid #888;background:#fff7
 #winOverlay button{
   font-size:18px;
   padding:12px 28px;
+}
+
+/* 成りモーダル */
+#promoteModal{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.6);
+  display:none;
+  align-items:center;justify-content:center;
+  z-index:3000;
+}
+#promoteModal .pm-box{
+  background:#fff7e0;
+  border:3px solid #c6862c;
+  border-radius:12px;
+  padding:24px 32px;
+  text-align:center;
+  box-shadow:0 6px 24px rgba(0,0,0,0.4);
+}
+#promoteModal .pm-box p{
+  font-size:18px;font-weight:bold;margin:0 0 16px;
+}
+#promoteModal .pm-btns{
+  display:flex;gap:12px;justify-content:center;
+}
+#promoteModal .pm-btns button{
+  font-size:16px;padding:10px 24px;
+  border-radius:8px;border:2px solid #c6862c;
+  background:#fff7e0;cursor:pointer;
+}
+#promoteModal .pm-yes{
+  background:#e8820a!important;color:#fff!important;border-color:#b56000!important;
 }
 
 /* =====================

@@ -1679,7 +1679,8 @@ function clickCell(r,c){
   if(selHand){
     if(marks.some(m=>m[0]===r&&m[1]===c)){
       save();
-      board[r][c]={t:selHand.t, o:turn, droppedAt:{r,c}};
+      const dropInCamp = inEnemyCamp(turn, r, c); // 打つ位置が敵陣かどうか
+      board[r][c]={t:selHand.t, o:turn, droppedInCamp: dropInCamp};
       hands[turn].splice(selHand.i, 1);
       lastMove = { from: null, to: {r, c} };
       selHand=null; marks=[];
@@ -1710,18 +1711,21 @@ function clickCell(r,c){
         if(confirm('天使になりますか？')) p.t='天';
       }
       /* 成り判定
-         「移動元が敵陣」「移動先が敵陣」「打った位置が敵陣（droppedAt残留中）」のいずれかで成れる */
-      const wasDroppedInCamp = p.droppedAt && inEnemyCamp(p.o, p.droppedAt.r, p.droppedAt.c);
-      const canPromote =
-        promoteMap[p.t] &&
-        (inEnemyCamp(p.o, fromR, fromC) || inEnemyCamp(p.o, r, c) || wasDroppedInCamp);
-
-      if(canPromote){
-        if(confirm('成る？')) p.t = promoteMap[p.t];
+         ・移動先が敵陣
+         ・移動元が敵陣
+         ・打った位置が敵陣だった（droppedInCamp=true）
+         のいずれかで成れる */
+      if(promoteMap[p.t]){
+        const fromInCamp = inEnemyCamp(p.o, fromR, fromC);
+        const toInCamp   = inEnemyCamp(p.o, r, c);
+        const wasDropped = p.droppedInCamp === true;
+        if(fromInCamp || toInCamp || wasDropped){
+          if(confirm('成る？')) p.t = promoteMap[p.t];
+        }
       }
 
-      // droppedAtフラグを削除（1回移動したら消す）
-      if(p.droppedAt) delete p.droppedAt;
+      // droppedInCampフラグを削除（1回移動したら消す）
+      if(p.droppedInCamp !== undefined) delete p.droppedInCamp;
 
       if(cap){
         if(cap.t==='神'||cap.t==='王'){

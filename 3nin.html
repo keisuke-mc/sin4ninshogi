@@ -271,7 +271,7 @@ Math.SQRT3 = Math.sqrt(3);
 
 // ═════════════════════════ CONSTANTS ═════════════════════════
 const SZ = 24; // hex size (80% of 30)
-const CX = 248, CY = 216; // board center (80% of 310, 270)
+const CX = 310, CY = 270; // board center
 const ABBR = {
   '輿論':'よ','旭光':'旭','軍教':'軍','竜化':'竜','外交':'外','魔叉':'魔',
   '金権':'金','税関':'税','殖貿':'殖','宝':'宝','宣電':'宣','化':'化',
@@ -467,7 +467,7 @@ function placeInitial() {
   board.set(K(1, -5), { type: '殖貿', owner: 0 });
   board.set(K(4, -5), { type: '殖貿', owner: 0 });
   board.set(K(6, -5), { type: '宣電', owner: 0 });
-  for (let i = 0; i < 7; i++) board.set(K(i, -4), { type: '尖占', owner: 0 });
+  for (let i = -2; i <= 6; i++) board.set(K(i, -4), { type: '尖占', owner: 0 });
 
   const p0 = [];
   board.forEach((pc, k) => {

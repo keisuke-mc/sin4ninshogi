@@ -126,10 +126,8 @@ svg{
   background:#f9f6f3;
   border-radius:4px;
   display:block;
-  width:80%;
+  width:auto;
   height:auto;
-  max-width:496px;
-  max-height:432px;
 }
 
 .turn-display{
@@ -272,8 +270,8 @@ svg{
 Math.SQRT3 = Math.sqrt(3);
 
 // ═════════════════════════ CONSTANTS ═════════════════════════
-const SZ = 30; // hex size
-const CX = 310, CY = 270;
+const SZ = 24; // hex size (80% of 30)
+const CX = 248, CY = 216; // board center (80% of 310, 270)
 const ABBR = {
   '輿論':'よ','旭光':'旭','軍教':'軍','竜化':'竜','外交':'外','魔叉':'魔',
   '金権':'金','税関':'税','殖貿':'殖','宝':'宝','宣電':'宣','化':'化',

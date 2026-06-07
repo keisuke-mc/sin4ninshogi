@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>国際三人将棋</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --wood:#f4d9a6;
+  --wood2:#e2b36d;
+  --bg:#d9932a;
+  --frame:#c6862c;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  margin:0;padding:10px;
+  background:var(--bg);
+  font-family:'Hiragino Mincho ProN','Yu Mincho','HGS明朝E',sans-serif;
+  color:#333
+}
+
+h1{
+  margin:4px 0;font-size:20px;text-align:center;
+  color:#5a3a0a;text-shadow:1px 1px 2px rgba(255,255,255,0.5)
+}
+
+.toolbar{
+  display:flex;
+  gap:10px;
+  margin:8px 0;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap
+}
+
+button{
+  padding:6px 12px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:#fff7e0;
+  cursor:pointer;
+  font-family:inherit;
+  font-size:13px
+}
+button:hover{background:#ffe8c0}
+
+.layout{
+  display:grid;
+  grid-template-columns:160px auto 160px;
+  grid-template-rows:auto auto;
+  gap:10px;
+  margin:10px auto;
+  max-width:1000px
+}
+
+.hand{
+  background:#fff3d4;
+  padding:8px;
+  border-radius:6px;
+  border:1px solid #daa;
+  max-height:300px;
+  overflow-y:auto;
+}
+
+.hand h3{
+  margin:0 0 8px;
+  font-size:12px;
+  text-align:center;
+  color:#5a3a0a;
+  font-weight:bold;
+}
+
+.hand.eliminated h3{
+  color:#999;
+  text-decoration:line-through
+}
+
+.hand-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  justify-content:center;
+}
+
+.hand-piece{
+  background:#fff;
+  border:1px solid #999;
+  border-radius:3px;
+  padding:3px 5px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:bold;
+  text-align:center;
+  min-width:22px;
+  transition:all 0.1s;
+  user-select:none;
+}
+
+.hand-piece:hover{
+  background:#fffacd;
+  border-color:#f0a;
+}
+
+.hand-piece.selected{
+  background:#ffff00;
+  border-color:#000;
+  box-shadow:0 0 6px #f0a;
+}
+
+.board-container{
+  grid-column:2;
+  grid-row:1 / span 2;
+  background:var(--frame);
+  padding:8px;
+  border-radius:8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+
+svg{
+  border:2px solid #8a6e3a;
+  background:#f9f6f3;
+  border-radius:4px;
+  display:block;
+  width:auto;
+  height:auto;
+}
+
+.turn-display{
+  font-size:13px;
+  font-weight:bold;
+  color:#5a3a0a;
+  text-align:center;
+}
+
+.check-msg{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:72px;
+  font-weight:bold;
+  color:red;
+  text-shadow:3px 3px 8px #000;
+  pointer-events:none;
+  z-index:999;
+  background:rgba(0,0,0,0.3);
+  animation:flash 0.8s;
+}
+
+.check-msg.show{display:flex}
+
+@keyframes flash{
+  0%,100%{opacity:1}
+  50%{opacity:0.5}
+}
+
+.help-panel{
+  display:none;
+  background:#fff3d4;
+  border:1px solid #daa;
+  border-radius:6px;
+  padding:10px;
+  margin:10px auto;
+  max-width:700px;
+  font-size:12px;
+  line-height:1.6;
+  max-height:300px;
+  overflow-y:auto;
+}
+
+.help-panel.show{display:block}
+
+.help-panel h3{
+  margin:0 0 8px;
+  font-size:14px;
+  color:#5a3a0a;
+}
+
+.help-row{
+  margin:6px 0;
+  padding:4px;
+  background:#fffaf0;
+  border-radius:4px;
+}
+
+.help-name{
+  font-weight:bold;
+  color:#0066cc;
+}
+
+.help-desc{
+  color:#666;
+  font-size:11px;
+  margin-top:2px;
+}
+
+</style>
+</head>
+<body>
+
+<h1>🌐 国際三人将棋</h1>
+
+<div class="toolbar">
+  <span id="turn-info" style="font-weight:bold;color:#5a3a0a"></span>
+  <button onclick="doUndo()">待った</button>
+  <button onclick="doInit()">初期化</button>
+  <button onclick="toggleHelp()">遊び方</button>
+  <button onclick="saveCode()">保存</button>
+  <button onclick="loadCode()">復元</button>
+</div>
+
+<div class="help-panel" id="helpPanel">
+  <h3>駒の動き（成り前 → 成り後）</h3>
+  <div class="help-row">
+    <div class="help-name">輿論(よ) → 旭光(旭)</div>
+    <div class="help-desc">隣接6方向1マス → 全12方向無限</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">軍教(軍) → 竜化(竜)</div>
+    <div class="help-desc">前・横4方向+後ろ頂点無限 → 隣接6方向無限</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">外交(外) → 魔叉(魔)</div>
+    <div class="help-desc">頂点6方向無限 → 外交+隣接6方向1マス</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">金権(金) 不成</div>
+    <div class="help-desc">前後頂点+前横隣1マス(6方向)</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">税関(税) 不成</div>
+    <div class="help-desc">横隣+斜め頂点4方向1マス(6方向)</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">殖貿(殖) → 宝(宝)</div>
+    <div class="help-desc">斜め隣4方向+前頂点2方向1マス</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">宣電(宣) → 化(化)</div>
+    <div class="help-desc">前斜め隣2方向無限</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">尖占(尖) → 弗(弗)</div>
+    <div class="help-desc">前斜め隣1マス → 金権と同じ動き</div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="hand" id="hand0"></div>
+  <div class="hand" id="hand1"></div>
+  
+  <div class="board-container">
+    <svg id="boardSvg" viewBox="0 0 620 540" width="620" height="540" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="turn-display" id="turn-display"></div>
+  </div>
+  
+  <div class="hand" id="hand3"></div>
+  <div class="hand" id="hand2"></div>
+</div>
+
+<div class="check-msg" id="checkMsg">王手！</div>
+
+<script>
+Math.SQRT3 = Math.sqrt(3);
+
+// ═════════════════════════ CONSTANTS ═════════════════════════
+const SZ = 30; // hex size
+const CX = 310, CY = 270;
+const ABBR = {
+  '輿論':'よ','旭光':'旭','軍教':'軍','竜化':'竜','外交':'外','魔叉':'魔',
+  '金権':'金','税関':'税','殖貿':'殖','宝':'宝','宣電':'宣','化':'化',
+  '尖占':'尖','弗':'弗'
+};
+const PROMOTE = {
+  '輿論':'旭光','軍教':'竜化','外交':'魔叉','殖貿':'宝','宣電':'化','尖占':'弗'
+};
+const UNPROMOTE = {};
+for (const [k, v] of Object.entries(PROMOTE)) UNPROMOTE[v] = k;
+UNPROMOTE['旭光'] = '輿論';
+const NO_PROMOTE = new Set(['金権','税関','旭光','竜化','魔叉','宝','化','弗']);
+const PROMOTED = new Set(['旭光','竜化','魔叉','宝','化','弗']);
+const P_NAME = ['先手(P1)', '中手(P2)', '後手(P3)'];
+const P_COL = ['#cc0000', '#0000cc', '#009900'];
+const P_ROT = [180, 300, 60]; // text rotation angles for each player
+
+// ═════════════════════════ HEX MATH ═════════════════════════
+function hexPx(q, r) {
+  return [
+    CX + SZ * (Math.SQRT3 * q + Math.SQRT3 / 2 * r),
+    CY + SZ * (1.5 * r)
+  ];
+}
+
+function pxHex(px, py) {
+  const x = (px - CX) / SZ;
+  const y = (py - CY) / SZ;
+  return hexRound(x * Math.SQRT3 / 3 - y / 3, y * 2 / 3);
+}
+
+function hexRound(fq, fr) {
+  const fs = -fq - fr;
+  let q = Math.round(fq), r = Math.round(fr), s = Math.round(fs);
+  const dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s - fs);
+  if (dq > dr && dq > ds) q = -r - s;
+  else if (dr > ds) r = -q - s;
+  return [q, r];
+}
+
+function isValid(q, r) {
+  return Math.abs(q) <= 6 && Math.abs(r) <= 6 && Math.abs(q + r) <= 6;
+}
+
+function K(q, r) { return q + ',' + r; }
+
+// ═════════════════════════ TERRITORY & DIRECTIONS ═════════════════════════
+const BDIR = [
+  [1,-2], [1,-1], [2,-1], [1,0], [1,1], [0,1],
+  [-1,2], [-1,1], [-2,1], [-1,0], [-1,-1], [0,-1]
+];
+const P_FWD = [6, 10, 2];
+
+function bdir(p, cp) {
+  return BDIR[(cp % 12 + P_FWD[p]) % 12];
+}
+
+function isOwn(owner, q, r) {
+  if (owner === 0) return r <= -4;
+  if (owner === 1) return q + r >= 4;
+  return q <= -4;
+}
+
+function isEnemy(owner, q, r) {
+  for (let p = 0; p < 3; p++) {
+    if (p !== owner && isOwn(p, q, r)) return true;
+  }
+  return false;
+}
+
+function isParadise(q, r) { return q === 0 && r === 0; }
+
+function cellColor(q, r) {
+  if (isParadise(q, r)) return '#d4af37';
+  if (isOwn(0, q, r)) return '#ffcccc';
+  if (isOwn(1, q, r)) return '#ccccff';
+  if (isOwn(2, q, r)) return '#ccffcc';
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) % 2 === 0 ? '#f4d9a6' : '#e2b36d';
+}
+
+// ═════════════════════════ MOVE GENERATION ═════════════════════════
+function getMoves(q, r, brd) {
+  const piece = brd.get(K(q, r));
+  if (!piece) return [];
+  const { type, owner } = piece;
+  const moves = [];
+
+  function step(cp) {
+    const [dq, dr] = bdir(owner, cp);
+    const nq = q + dq, nr = r + dr;
+    if (!isValid(nq, nr)) return;
+    const t = brd.get(K(nq, nr));
+    if (t && t.owner === owner) return;
+    moves.push([nq, nr]);
+  }
+
+  function slide(cp) {
+    const [dq, dr] = bdir(owner, cp);
+    let nq = q + dq, nr = r + dr;
+    while (isValid(nq, nr)) {
+      const t = brd.get(K(nq, nr));
+      if (t) {
+        if (t.owner !== owner) moves.push([nq, nr]);
+        break;
+      }
+      moves.push([nq, nr]);
+      nq += dq; nr += dr;
+    }
+  }
+
+  switch (type) {
+    case '輿論': [1,3,5,7,9,11].forEach(step); break;
+    case '旭光': for (let i = 1; i <= 12; i++) slide(i); break;
+    case '軍教': [1,3,9,11].forEach(slide); slide(6); break;
+    case '竜化': [1,3,5,7,9,11].forEach(slide); break;
+    case '外交': [12,2,4,6,8,10].forEach(slide); break;
+    case '魔叉': [12,2,4,6,8,10].forEach(slide); [1,3,5,7,9,11].forEach(step); break;
+    case '金権': case '弗': [12,1,3,6,9,11].forEach(step); break;
+    case '税関': [3,9,2,4,8,10].forEach(step); break;
+    case '殖貿': case '宝': [1,5,7,11,2,10].forEach(step); break;
+    case '宣電': case '化': [1,11].forEach(slide); break;
+    case '尖占': [1,11].forEach(step); break;
+  }
+  return moves;
+}
+
+function getDrops(type, owner, brd) {
+  const drops = [];
+  for (let q = -6; q <= 6; q++) {
+    for (let r = -6; r <= 6; r++) {
+      if (!isValid(q, r) || brd.has(K(q, r))) continue;
+      const tmp = new Map(brd);
+      tmp.set(K(q, r), { type, owner });
+      if (getMoves(q, r, tmp).length === 0) continue;
+      drops.push([q, r]);
+    }
+  }
+  return drops;
+}
+
+function inCheck(p, brd) {
+  let kq, kr;
+  for (const [k, pc] of brd) {
+    if (pc.owner === p && (pc.type === '輿論' || pc.type === '旭光')) {
+      [kq, kr] = k.split(',').map(Number);
+      break;
+    }
+  }
+  if (kq === undefined) return false;
+  for (const [k, pc] of brd) {
+    if (pc.owner === p || !alive[pc.owner]) continue;
+    const [aq, ar] = k.split(',').map(Number);
+    if (getMoves(aq, ar, brd).some(([mq, mr]) => mq === kq && mr === kr)) return true;
+  }
+  return false;
+}
+
+// ═════════════════════════ GAME STATE ═════════════════════════
+const svg = document.getElementById('boardSvg');
+let board = new Map(), hands = [[], [], []], alive = [true, true, true], turn = 0;
+let sel = null, validMoves = [], history = [];
+
+function updateStatus() {
+  const alive_names = alive.map((a, i) => a ? P_NAME[i] : '').filter(s => s).join(' | ');
+  document.getElementById('turn-info').textContent = P_NAME[turn];
+  document.getElementById('turn-display').textContent = `手番: ${P_NAME[turn]} (残: ${alive_names})`;
+}
+
+function doInit() {
+  if (!confirm('初期化しますか？')) return;
+  init();
+}
+
+function init() {
+  board = new Map();
+  hands = [[], [], []];
+  alive = [true, true, true];
+  turn = 0;
+  sel = null;
+  validMoves = [];
+  history = [];
+  placeInitial();
+  draw();
+  updateStatus();
+}
+
+function rot120(q, r) { return [-q - r, q]; }
+
+function placeInitial() {
+  const BACK = ['税関','金権','外交','輿論','軍教','金権','税関'];
+  for (let i = 0; i < 7; i++) board.set(K(i, -6), { type: BACK[i], owner: 0 });
+  board.set(K(-1, -5), { type: '宣電', owner: 0 });
+  board.set(K(1, -5), { type: '殖貿', owner: 0 });
+  board.set(K(4, -5), { type: '殖貿', owner: 0 });
+  board.set(K(6, -5), { type: '宣電', owner: 0 });
+  for (let i = 0; i < 7; i++) board.set(K(i, -4), { type: '尖占', owner: 0 });
+
+  const p0 = [];
+  board.forEach((pc, k) => {
+    if (pc.owner === 0) p0.push([...k.split(',').map(Number), pc.type]);
+  });
+  for (const [q, r, t] of p0) {
+    const [q1, r1] = rot120(q, r);
+    board.set(K(q1, r1), { type: t, owner: 1 });
+    const [q2, r2] = rot120(q1, r1);
+    board.set(K(q2, r2), { type: t, owner: 2 });
+  }
+}
+
+function save() {
+  history.push({ board: new Map(board), hands: hands.map(h => [...h]), alive: [...alive], turn });
+}
+
+function doUndo() {
+  if (!history.length) return;
+  const s = history.pop();
+  board = s.board;
+  hands = s.hands;
+  alive = s.alive;
+  turn = s.turn;
+  sel = null;
+  validMoves = [];
+  draw();
+  updateStatus();
+}
+
+function nextTurn() {
+  const start = turn;
+  do { turn = (turn + 1) % 3; } while (!alive[turn] && turn !== start);
+  updateStatus();
+}
+
+function executeMove(fq, fr, tq, tr) {
+  save();
+  const piece = { ...board.get(K(fq, fr)) };
+  const cap = board.get(K(tq, tr));
+  board.delete(K(fq, fr));
+  board.set(K(tq, tr), piece);
+
+  if (cap) {
+    if (cap.type === '輿論' || cap.type === '旭光') {
+      alive[cap.owner] = false;
+      for (const k of [...board.keys()]) {
+        if (board.get(k).owner === cap.owner) board.delete(k);
+      }
+      const remaining = alive.reduce((n, a) => n + (a ? 1 : 0), 0);
+      if (remaining === 1) {
+        const winner = alive.indexOf(true);
+        setTimeout(() => alert(`🏆 ${P_NAME[winner]}の勝利！`), 100);
+        draw();
+        return;
+      }
+    } else {
+      hands[turn].push(UNPROMOTE[cap.type] || cap.type);
+    }
+  }
+
+  const np = board.get(K(tq, tr));
+  if (!NO_PROMOTE.has(np.type)) {
+    const wasEnemy = isEnemy(piece.owner, fq, fr);
+    const nowEnemy = isEnemy(np.owner, tq, tr);
+    const paradise = isParadise(tq, tr);
+    if (wasEnemy || nowEnemy || paradise) {
+      if (getMoves(tq, tr, board).length === 0) {
+        np.type = PROMOTE[np.type];
+      } else if (confirm(`${ABBR[np.type]}を成りますか？\n→ ${ABBR[PROMOTE[np.type]]}`)) {
+        np.type = PROMOTE[np.type];
+      }
+    }
+  }
+
+  if (isParadise(tq, tr) && (np.type === '輿論' || np.type === '旭光')) {
+    let safe = true;
+    for (const [k, pc] of board) {
+      if (pc.owner === np.owner || !alive[pc.owner]) continue;
+      const [aq, ar] = k.split(',').map(Number);
+      if (getMoves(aq, ar, board).some(([mq, mr]) => mq === 0 && mr === 0)) {
+        safe = false;
+        break;
+      }
+    }
+    if (safe) {
+      setTimeout(() => alert(`🏆 ${P_NAME[np.owner]}の楽園入城勝利！`), 100);
+      draw();
+      return;
+    }
+  }
+
+  for (let p = 0; p < 3; p++) {
+    if (p === turn || !alive[p]) continue;
+    if (inCheck(p, board)) {
+      showCheck();
+      break;
+    }
+  }
+
+  sel = null;
+  validMoves = [];
+  nextTurn();
+  draw();
+}
+
+function executeDrop(type, owner, tq, tr) {
+  save();
+  board.set(K(tq, tr), { type, owner });
+  const idx = hands[owner].indexOf(type);
+  if (idx >= 0) hands[owner].splice(idx, 1);
+
+  if (type === '尖占') {
+    for (let p = 0; p < 3; p++) {
+      if (p === owner || !alive[p]) continue;
+      if (inCheck(p, board)) {
+        let canEscape = false;
+        for (const [k, pc] of board) {
+          if (pc.owner !== p) continue;
+          const [aq, ar] = k.split(',').map(Number);
+          for (const [mq, mr] of getMoves(aq, ar, board)) {
+            const tmp = new Map(board);
+            tmp.delete(k);
+            tmp.set(K(mq, mr), { ...pc });
+            if (!inCheck(p, tmp)) { canEscape = true; break; }
+          }
+          if (canEscape) break;
+        }
+        if (!canEscape) {
+          doUndo();
+          alert('打ち尖占詰めは禁じ手です！');
+          return;
+        }
+      }
+    }
+  }
+
+  sel = null;
+  validMoves = [];
+  nextTurn();
+  draw();
+}
+
+// ═════════════════════════ SVG DRAWING ═════════════════════════
+function draw() {
+  svg.innerHTML = '';
+
+  // Draw hexagons and pieces
+  for (let q = -6; q <= 6; q++) {
+    for (let r = -6; r <= 6; r++) {
+      if (!isValid(q, r)) continue;
+      const [px, py] = hexPx(q, r);
+
+      // Hex background
+      const hexPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const points = [];
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 3 * i - Math.PI / 6;
+        points.push([(px + SZ * Math.cos(a)), (py + SZ * Math.sin(a))]);
+      }
+      hexPoly.setAttribute('points', points.map(p => p.join(',')).join(' '));
+
+      let col = cellColor(q, r);
+      const isSel = sel && sel.q === q && sel.r === r;
+      const isMove = validMoves.some(([mq, mr]) => mq === q && mr === r);
+      const isOcc = board.has(K(q, r));
+
+      if (isSel) col = '#ffff00';
+      else if (isMove) col = isOcc ? '#ff5544' : '#8fd3ff';
+
+      hexPoly.setAttribute('fill', col);
+      hexPoly.setAttribute('stroke', '#8a6e3a');
+      hexPoly.setAttribute('stroke-width', '2');
+      hexPoly.setAttribute('style', 'cursor:pointer;');
+      hexPoly.onclick = () => handleCellClick(q, r);
+
+      svg.appendChild(hexPoly);
+
+      // Draw piece
+      const piece = board.get(K(q, r));
+      if (piece) {
+        const col = P_COL[piece.owner];
+        const isProm = PROMOTED.has(piece.type);
+
+        // Pentagon shape
+        const pent = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const pentPoints = [];
+        for (let i = 0; i < 5; i++) {
+          const a = Math.PI / 2.5 * i - Math.PI / 2;
+          const r = SZ * 0.65;
+          pentPoints.push([(px + r * Math.cos(a)), (py + r * Math.sin(a))]);
+        }
+        pent.setAttribute('points', pentPoints.map(p => p.join(',')).join(' '));
+        pent.setAttribute('fill', col);
+        pent.setAttribute('stroke', '#fff');
+        pent.setAttribute('stroke-width', '1.5');
+        svg.appendChild(pent);
+
+        // Promoted border
+        if (isProm) {
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', px - SZ * 0.65);
+          rect.setAttribute('y', py - SZ * 0.4);
+          rect.setAttribute('width', SZ * 1.3);
+          rect.setAttribute('height', SZ * 0.8);
+          rect.setAttribute('fill', 'none');
+          rect.setAttribute('stroke', '#ff8800');
+          rect.setAttribute('stroke-width', '1');
+          svg.appendChild(rect);
+        }
+
+        // Piece text with rotation
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', px);
+        text.setAttribute('y', py + SZ * 0.08);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('font-size', SZ * 0.55);
+        text.setAttribute('font-family', 'serif');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('fill', '#fff');
+        text.setAttribute('pointer-events', 'none');
+        text.setAttribute('transform', `rotate(${P_ROT[piece.owner]} ${px} ${py})`);
+        text.textContent = ABBR[piece.type];
+        svg.appendChild(text);
+      }
+    }
+  }
+
+  // Draw hands
+  [0, 1, 2].forEach(owner => {
+    const handEl = document.getElementById(`hand${owner}`);
+    handEl.innerHTML = `<h3>P${owner + 1} 持ち駒</h3>`;
+    handEl.classList.toggle('eliminated', !alive[owner]);
+
+    if (!alive[owner]) return;
+
+    const list = document.createElement('div');
+    list.className = 'hand-list';
+
+    for (let i = 0; i < hands[owner].length; i++) {
+      const t = hands[owner][i];
+      const div = document.createElement('div');
+      div.className = 'hand-piece';
+      div.textContent = t;
+
+      if (sel && sel.kind === 'hand' && sel.owner === owner && sel.idx === i) {
+        div.classList.add('selected');
+      }
+
+      div.onclick = e => {
+        e.stopPropagation();
+        clickHandPiece(owner, i);
+      };
+
+      list.appendChild(div);
+    }
+
+    handEl.appendChild(list);
+  });
+}
+
+function handleCellClick(q, r) {
+  if (sel && sel.kind === 'hand') {
+    if (validMoves.some(([mq, mr]) => mq === q && mr === r)) {
+      executeDrop(sel.type, sel.owner, q, r);
+    }
+    return;
+  }
+
+  if (sel) {
+    if (validMoves.some(([mq, mr]) => mq === q && mr === r)) {
+      executeMove(sel.q, sel.r, q, r);
+    } else {
+      sel = null;
+      validMoves = [];
+      draw();
+    }
+    return;
+  }
+
+  const piece = board.get(K(q, r));
+  if (piece && piece.owner === turn && alive[turn]) {
+    sel = { q, r };
+    validMoves = getMoves(q, r, board).filter(([mq, mr]) => {
+      const tmp = new Map(board);
+      const p = { ...piece };
+      tmp.delete(K(q, r));
+      tmp.set(K(mq, mr), p);
+      return !inCheck(turn, tmp);
+    });
+    draw();
+  }
+}
+
+function clickHandPiece(owner, idx) {
+  if (owner !== turn) return;
+  if (sel && sel.kind === 'hand' && sel.owner === owner && sel.idx === idx) {
+    sel = null;
+    validMoves = [];
+    draw();
+    return;
+  }
+  const type = hands[owner][idx];
+  sel = { kind: 'hand', owner, idx, type };
+  validMoves = getDrops(type, owner, board);
+  draw();
+}
+
+function showCheck() {
+  const el = document.getElementById('checkMsg');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 800);
+}
+
+function toggleHelp() {
+  document.getElementById('helpPanel').classList.toggle('show');
+}
+
+// ═════════════════════════ SAVE / LOAD ═════════════════════════
+function exportCode() {
+  const data = { board: [...board], hands, alive, turn };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+}
+
+function importCode(code) {
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(code))));
+    board = new Map(data.board);
+    hands = data.hands;
+    alive = data.alive;
+    turn = data.turn;
+    sel = null;
+    validMoves = [];
+    history = [];
+    draw();
+    updateStatus();
+  } catch (e) {
+    alert('コードが壊れています');
+  }
+}
+
+function saveCode() {
+  const code = exportCode();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code)
+      .then(() => alert('コードをクリップボードにコピーしました'))
+      .catch(() => fallbackCopy(code));
+  } else {
+    fallbackCopy(code);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  alert('コードをコピーしました');
+}
+
+function loadCode() {
+  const code = prompt('保存したコードを貼り付けてください:');
+  if (code) importCode(code.trim());
+}
+
+// ═════════════════════════ START ═════════════════════════
+init();
+</script>
+</body>
+</html>

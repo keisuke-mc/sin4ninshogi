@@ -748,13 +748,7 @@ function handleCellClick(q, r) {
     const piece = board.get(K(q, r));
     if (piece && piece.owner === turn && alive[turn]) {
       sel = { q, r };
-      validMoves = getMoves(q, r, board).filter(([mq, mr]) => {
-        const tmp = new Map(board);
-        const p = { ...piece };
-        tmp.delete(K(q, r));
-        tmp.set(K(mq, mr), p);
-        return !inCheck(turn, tmp);
-      });
+      validMoves = getMoves(q, r, board);
       draw();
     } else {
       // 空きマスをクリックしたらキャンセル
@@ -768,13 +762,7 @@ function handleCellClick(q, r) {
   const piece = board.get(K(q, r));
   if (piece && piece.owner === turn && alive[turn]) {
     sel = { q, r };
-    validMoves = getMoves(q, r, board).filter(([mq, mr]) => {
-      const tmp = new Map(board);
-      const p = { ...piece };
-      tmp.delete(K(q, r));
-      tmp.set(K(mq, mr), p);
-      return !inCheck(turn, tmp);
-    });
+    validMoves = getMoves(q, r, board);
     draw();
   }
 }

@@ -514,9 +514,6 @@ function executeMove(fq, fr, tq, tr) {
   if (cap) {
     if (cap.type === '輿論' || cap.type === '旭光') {
       alive[cap.owner] = false;
-      for (const k of [...board.keys()]) {
-        if (board.get(k).owner === cap.owner) board.delete(k);
-      }
       const remaining = alive.reduce((n, a) => n + (a ? 1 : 0), 0);
       if (remaining === 1) {
         const winner = alive.indexOf(true);

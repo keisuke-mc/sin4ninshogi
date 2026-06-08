@@ -741,7 +741,23 @@ function handleCellClick(q, r) {
   if (sel) {
     if (validMoves.some(([mq, mr]) => mq === q && mr === r)) {
       executeMove(sel.q, sel.r, q, r);
+      return;
+    }
+    
+    // 別の駒をクリックした場合、その駒を選択する
+    const piece = board.get(K(q, r));
+    if (piece && piece.owner === turn && alive[turn]) {
+      sel = { q, r };
+      validMoves = getMoves(q, r, board).filter(([mq, mr]) => {
+        const tmp = new Map(board);
+        const p = { ...piece };
+        tmp.delete(K(q, r));
+        tmp.set(K(mq, mr), p);
+        return !inCheck(turn, tmp);
+      });
+      draw();
     } else {
+      // 空きマスをクリックしたらキャンセル
       sel = null;
       validMoves = [];
       draw();

@@ -653,7 +653,16 @@ const P_NAME = ['先手(P1)', '中手(P2)', '後手(P3)'];
 const P_COL = ['#cc0000', '#0000cc', '#009900'];
 const P_ROT = [180, 300, 60];
 
-const STAMPS = ['👍', '💪', '✌️', '🎉', '😅', '😢', '🤔', '🔥'];
+const STAMPS = [
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/1.png', label: 'ふん！' },
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/2.png', label: '助けて' },
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/3.png', label: 'わかった' },
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/4.png', label: 'うーん...' },
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/5.png', label: '怒' },
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/6.png', label: '?' },
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/7.png', label: 'ガハハ' },
+  { url: 'https://keisuke-mc.github.io/sin4ninshogi/stamp/8.png', label: '・・・' },
+];
 
 /* ========== Hex Math ========== */
 function hexPx(q, r) {
@@ -1552,7 +1561,9 @@ function listenRoom() {
   stampListener = db.ref(`rooms/${roomId}/stamp`).on('value', snap => {
     const d = snap.val();
     if (!d || !d.ts || d.ts <= stampListenStart || d.uid === myUid) return;
-    showStampDisplay(STAMPS[d.stampIdx % STAMPS.length]);
+    if (d.stampIdx >= 0 && d.stampIdx < STAMPS.length) {
+      showStampDisplay(STAMPS[d.stampIdx].url);
+    }
   });
 
   listenChat();
@@ -1767,7 +1778,7 @@ function toggleStampPicker(e) {
     picker.classList.remove('open');
     return;
   }
-  picker.innerHTML = STAMPS.map((s, i) => `<div class="stamp-choice" onclick="sendStamp(${i})">${s}</div>`).join('');
+  picker.innerHTML = STAMPS.map((s, i) => `<div class="stamp-choice" onclick="sendStamp(${i})" title="${s.label}"><img src="${s.url}" alt="${s.label}" style="width:48px;height:48px;object-fit:contain;display:block"></div>`).join('');
   picker.classList.add('open');
 }
 
@@ -1778,7 +1789,7 @@ document.addEventListener('click', () => {
 
 function sendStamp(stampIdx) {
   document.getElementById('stampPickerPopup').classList.remove('open');
-  showStampDisplay(STAMPS[stampIdx]);
+  showStampDisplay(STAMPS[stampIdx].url);
 
   if (isOnline && db && roomRef) {
     db.ref(`rooms/${roomId}/stamp`).set({
@@ -1792,19 +1803,23 @@ function sendStamp(stampIdx) {
   startStampCooldown();
 }
 
-function showStampDisplay(emoji) {
-  const el = document.createElement('div');
+function showStampDisplay(url) {
+  const SIZE = 80;
+  const el = document.createElement('img');
+  el.src = url;
   el.style.cssText = `
     position:fixed;
     left:50%;
     top:50%;
+    width:${SIZE}px;
+    height:${SIZE}px;
+    object-fit:contain;
     transform:translate(-50%,-50%);
-    font-size:120px;
     pointer-events:none;
     z-index:9999;
+    filter:drop-shadow(2px 3px 6px rgba(0,0,0,0.6));
     animation:stampPop .25s ease, stampFade 2s forwards;
   `;
-  el.textContent = emoji;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2000);
 }

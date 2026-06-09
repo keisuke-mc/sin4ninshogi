@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>国際三人将棋 オンライン</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --wood:#f4d9a6;
+  --wood2:#e2b36d;
+  --bg:#d9932a;
+  --frame:#c6862c;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  margin:0;padding:10px;
+  background:var(--bg);
+  font-family:sans-serif;
+  color:#333
+}
+
+h1{
+  margin:4px 0;font-size:20px;text-align:center;
+  color:#5a3a0a;text-shadow:1px 1px 2px rgba(255,255,255,0.5)
+}
+
+#onlineBadge{
+  display:none;
+  background:#2a9d2a;
+  color:#fff;
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:10px;
+  margin-left:8px;
+  vertical-align:middle;
+}
+
+.toolbar{
+  display:flex;
+  gap:10px;
+  margin:8px 0;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap
+}
+
+button{
+  padding:6px 12px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:#fff7e0;
+  cursor:pointer;
+  font-family:inherit;
+  font-size:13px
+}
+button:hover:not(:disabled){background:#ffe8c0}
+button:disabled{opacity:0.5;cursor:default}
+
+.layout{
+  display:grid;
+  grid-template-columns:160px auto 160px;
+  grid-template-rows:auto auto;
+  gap:10px;
+  margin:10px auto;
+  max-width:1000px
+}
+
+.hand{
+  background:#fff3d4;
+  padding:8px;
+  border-radius:6px;
+  border:1px solid #daa;
+  max-height:300px;
+  overflow-y:auto;
+}
+
+.hand h3{
+  margin:0 0 8px;
+  font-size:12px;
+  text-align:center;
+  color:#5a3a0a;
+  font-weight:bold;
+}
+
+.hand.eliminated h3{
+  color:#999;
+  text-decoration:line-through
+}
+
+.hand-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  justify-content:center;
+}
+
+.hand-piece{
+  background:#fff;
+  border:1px solid #999;
+  border-radius:3px;
+  padding:3px 5px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:bold;
+  text-align:center;
+  min-width:22px;
+  transition:all 0.1s;
+  user-select:none;
+}
+
+.hand-piece:hover{
+  background:#fffacd;
+  border-color:#f0a;
+}
+
+.hand-piece.selected{
+  background:#ffff00;
+  border-color:#000;
+  box-shadow:0 0 6px #f0a;
+}
+
+.board-container{
+  grid-column:2;
+  grid-row:1 / span 2;
+  background:var(--frame);
+  padding:8px;
+  border-radius:8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+
+svg{
+  border:2px solid #8a6e3a;
+  background:#f9f6f3;
+  border-radius:4px;
+  display:block;
+  width:auto;
+  height:auto;
+}
+
+.turn-display{
+  font-size:13px;
+  font-weight:bold;
+  color:#5a3a0a;
+  text-align:center;
+}
+
+.check-msg{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:72px;
+  font-weight:bold;
+  color:red;
+  text-shadow:3px 3px 8px #000;
+  pointer-events:none;
+  z-index:999;
+  background:rgba(0,0,0,0.3);
+  animation:flash 0.8s;
+}
+
+.check-msg.show{display:flex}
+
+@keyframes flash{
+  0%,100%{opacity:1}
+  50%{opacity:0.5}
+}
+
+.help-panel{
+  display:none;
+  background:#fff3d4;
+  border:1px solid #daa;
+  border-radius:6px;
+  padding:10px;
+  margin:10px auto;
+  max-width:700px;
+  font-size:12px;
+  line-height:1.6;
+  max-height:300px;
+  overflow-y:auto;
+}
+
+.help-panel.show{display:block}
+
+.help-panel h3{
+  margin:0 0 8px;
+  font-size:14px;
+  color:#5a3a0a;
+}
+
+.help-row{
+  margin:6px 0;
+  padding:4px;
+  background:#fffaf0;
+  border-radius:4px;
+}
+
+.help-name{
+  font-weight:bold;
+  color:#0066cc;
+}
+
+.help-desc{
+  color:#666;
+  font-size:11px;
+  margin-top:2px;
+}
+
+/* =====================
+   ロビーオーバーレイ
+   ===================== */
+#lobby{
+  position:fixed;
+  inset:0;
+  background:rgba(20,10,0,0.9);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:2000;
+}
+
+.lobby-box{
+  background:#fff7e0;
+  border:4px solid #c6862c;
+  border-radius:16px;
+  padding:32px 28px;
+  width:340px;
+  text-align:center;
+  box-shadow:0 8px 40px rgba(0,0,0,0.6);
+  animation:popIn .2s ease;
+}
+@keyframes popIn{
+  from{transform:scale(.88);opacity:0}
+  to  {transform:scale(1);opacity:1}
+}
+
+.lobby-box h2{margin:0 0 6px;font-size:22px;color:#7a4a00}
+.lobby-box>p,.lobby-box .lp{color:#666;margin:0 0 18px;font-size:14px}
+
+.lb-btn{
+  display:block;
+  width:100%;
+  padding:12px;
+  margin:7px 0;
+  font-size:16px;
+  border-radius:8px;
+  border:2px solid #c6862c;
+  background:#fff7e0;
+  cursor:pointer;
+  transition:background .15s, transform .1s;
+}
+.lb-btn:hover:not(:disabled){background:#f4d9a6;transform:translateY(-1px)}
+.lb-btn:disabled{opacity:.4;cursor:default}
+.lb-btn.lb-sub{font-size:13px;border-color:#bbb;background:#f5f5f5;color:#555}
+.lb-btn.lb-primary{background:#e8820a;color:#fff;border-color:#b56000;font-weight:bold}
+.lb-btn.lb-primary:hover:not(:disabled){background:#c86800}
+
+.room-id-display{
+  font-size:36px;
+  font-weight:bold;
+  letter-spacing:6px;
+  color:#7a4a00;
+  background:#ffe8a0;
+  border:2px dashed #c6862c;
+  border-radius:8px;
+  padding:12px;
+  margin:10px 0 4px;
+  cursor:pointer;
+  user-select:all;
+  transition:background .15s;
+}
+.room-id-display:hover{background:#ffd060}
+
+.copy-hint{font-size:11px;color:#999;margin:0 0 14px}
+
+.player-slots{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin:10px 0 4px;
+  flex-wrap:wrap;
+}
+.player-slot{
+  width:52px;height:52px;
+  border-radius:50%;
+  border:2px solid #ccc;
+  background:#eee;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#888;
+  flex-direction:column;gap:2px;
+  transition:all .25s;
+}
+.player-slot.filled{background:#f4d9a6;border-color:#c6862c;color:#7a4a00;font-weight:bold}
+.player-slot.me{background:#e8820a;border-color:#b56000;color:#fff;font-weight:bold}
+
+.status-msg{font-size:13px;color:#888;margin:6px 0}
+.error-msg{color:#c00;font-size:13px;margin:6px 0;min-height:18px}
+
+.spinner{
+  width:44px;height:44px;
+  border:5px solid #e2b36d;
+  border-top-color:#c6862c;
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+  margin:16px auto;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#roomIdInput{
+  width:100%;
+  padding:12px;
+  font-size:26px;
+  text-align:center;
+  letter-spacing:5px;
+  border:2px solid #c6862c;
+  border-radius:8px;
+  background:#ffe8a0;
+  box-sizing:border-box;
+  margin:8px 0 4px;
+  text-transform:uppercase;
+}
+#roomIdInput:focus{outline:3px solid #e8820a;background:#fff8d0}
+
+hr{border:none;border-top:1px solid #ddd;margin:14px 0}
+
+/* 待機バナー */
+#waitingBanner{
+  position:fixed;
+  bottom:16px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.7);
+  color:#fff;
+  padding:8px 20px;
+  border-radius:20px;
+  font-size:14px;
+  display:none;
+  z-index:500;
+  pointer-events:none;
+}
+
+/* スタンプ */
+#stampWrapper{
+  position:relative;
+  display:inline-block;
+}
+#stampPickerPopup{
+  display:none;
+  position:absolute;
+  top:36px;
+  right:0;
+  background:#fff7e0;
+  border:2px solid #c6862c;
+  border-radius:10px;
+  padding:8px;
+  z-index:800;
+  box-shadow:0 4px 16px rgba(0,0,0,0.25);
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  width:120px;
+}
+#stampPickerPopup.open{ display:grid; }
+.stamp-choice{
+  font-size:32px;
+  text-align:center;
+  cursor:pointer;
+  border-radius:8px;
+  padding:4px;
+  transition:background .15s, transform .1s;
+  line-height:1;
+}
+.stamp-choice:hover{ background:#f4d9a6; transform:scale(1.15); }
+#stampBtn.cooldown{ opacity:.4; cursor:default; }
+#stampCooldownBar{
+  position:absolute;
+  bottom:-4px;
+  left:0;
+  height:3px;
+  background:#e8820a;
+  border-radius:2px;
+  width:0%;
+  transition:none;
+}
+
+.stamp-display{
+  position:absolute;
+  width:80px;
+  height:80px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  z-index:300;
+  animation:stampPop .25s ease, stampFade 2s forwards;
+  filter:drop-shadow(2px 3px 4px rgba(0,0,0,0.5));
+}
+@keyframes stampPop{
+  0%  { transform:translate(-50%,-50%) scale(0.2); opacity:0; }
+  60% { transform:translate(-50%,-50%) scale(1.25); opacity:1; }
+  100%{ transform:translate(-50%,-50%) scale(1);    opacity:1; }
+}
+@keyframes stampFade{
+  0%  { opacity:1; }
+  70% { opacity:1; }
+  100%{ opacity:0; }
+}
+
+/* チャット */
+#chatArea{
+  position:fixed;
+  left:10px;
+  bottom:10px;
+  width:260px;
+  z-index:400;
+  display:none;
+  background:rgba(0,0,0,0.45);
+  border-radius:10px;
+  padding:8px;
+  backdrop-filter:blur(2px);
+}
+#chatHistory{
+  list-style:none;
+  margin:0 0 4px;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+#chatHistory li{
+  color:#fff;
+  font-size:13px;
+  opacity:0.92;
+  display:flex;
+  text-shadow:1px 1px 3px #000,0 0 6px #000;
+  line-height:1.4;
+  word-break:break-all;
+}
+.chat-name{
+  min-width:5.5em;
+  text-align:right;
+  flex-shrink:0;
+}
+.chat-colon{ margin:0 3px; flex-shrink:0; }
+.chat-msg{ flex:1; }
+#chatInputRow{
+  display:flex;
+  gap:4px;
+}
+#chatInput{
+  flex:1;
+  padding:5px 7px;
+  font-size:13px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:rgba(0,0,0,0.5);
+  color:#fff;
+  outline:none;
+}
+#chatInput::placeholder{ color:#aaa; }
+#chatSendBtn{
+  padding:4px 7px;
+  border-radius:6px;
+  border:1px solid #888;
+  background:rgba(0,0,0,0.5);
+  color:#fff;
+  cursor:pointer;
+  font-size:14px;
+}
+#chatSendBtn:disabled{ opacity:0.4; cursor:default; }
+#chatCoolBar{
+  height:2px;
+  background:#e8820a;
+  border-radius:1px;
+  width:0%;
+  margin-top:2px;
+}
+
+/* 勝利オーバーレイ */
+#winOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.75);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1500;
+  flex-direction:column;
+  gap:20px;
+}
+#winOverlay .win-msg{
+  font-size:56px;
+  font-weight:bold;
+  color:#ffd700;
+  text-shadow:0 0 20px #f90, 3px 3px 8px #000;
+}
+#winOverlay button{
+  font-size:18px;
+  padding:12px 28px;
+}
+
+</style>
+</head>
+<body>
+
+<h1>🌐 国際三人将棋 <span id="onlineBadge">🔌 オンライン</span></h1>
+
+<div class="toolbar">
+  <span id="turn-info" style="font-weight:bold;color:#5a3a0a"></span>
+  <button onclick="doUndo()">待った</button>
+  <button onclick="doInit()">初期化</button>
+  <button onclick="toggleHelp()">遊び方</button>
+  <button onclick="saveCode()">保存</button>
+  <button onclick="loadCode()">復元</button>
+  <button onclick="showLobby('main')" style="margin-left:auto">🌐 オンライン</button>
+  <div id="stampWrapper">
+    <button id="stampBtn" onclick="toggleStampPicker(event)" title="スタンプ" style="font-size:18px;padding:5px 10px">
+      🎭
+    </button>
+    <div id="stampCooldownBar"></div>
+    <div id="stampPickerPopup"></div>
+  </div>
+</div>
+
+<div class="help-panel" id="helpPanel">
+  <h3>駒の動き（成り前 → 成り後）</h3>
+  <div class="help-row">
+    <div class="help-name">輿論(よ) → 旭光(旭)</div>
+    <div class="help-desc">隣接6方向1マス → 全12方向無限</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">軍教(軍) → 竜化(竜)</div>
+    <div class="help-desc">前・横4方向+後ろ頂点無限 → 隣接6方向無限</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">外交(外) → 魔叉(魔)</div>
+    <div class="help-desc">頂点6方向無限 → 外交+隣接6方向1マス</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">金権(金) 不成</div>
+    <div class="help-desc">前後頂点+前横隣1マス(6方向)</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">税関(税) 不成</div>
+    <div class="help-desc">横隣+斜め頂点4方向1マス(6方向)</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">殖貿(殖) → 宝(宝)</div>
+    <div class="help-desc">斜め隣4方向+前頂点2方向1マス</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">宣電(宣) → 化(化)</div>
+    <div class="help-desc">前斜め隣2方向無限</div>
+  </div>
+  <div class="help-row">
+    <div class="help-name">尖占(尖) → 弗(弗)</div>
+    <div class="help-desc">前斜め隣1マス → 金権と同じ動き</div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="hand" id="hand0"></div>
+  <div class="hand" id="hand1"></div>
+  
+  <div class="board-container">
+    <svg id="boardSvg" viewBox="0 0 620 540" width="620" height="540" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="turn-display" id="turn-display"></div>
+  </div>
+  
+  <div class="hand" id="hand2"></div>
+</div>
+
+<div class="check-msg" id="checkMsg">王手！</div>
+
+<!-- 待機バナー -->
+<div id="waitingBanner">⏳ 相手の手番です...</div>
+
+<!-- チャット -->
+<div id="chatArea">
+  <ul id="chatHistory"></ul>
+  <div id="chatInputRow">
+    <input id="chatInput" maxlength="40" placeholder="メッセージ..."
+      onkeydown="if(event.key==='Enter')sendChat()">
+    <button id="chatSendBtn" onclick="sendChat()">📤</button>
+  </div>
+  <div id="chatCoolBar"></div>
+</div>
+
+<!-- ロビーオーバーレイ -->
+<div id="lobby">
+  <div class="lobby-box">
+    <div id="lobbyContent"></div>
+  </div>
+</div>
+
+<!-- 勝利オーバーレイ -->
+<div id="winOverlay">
+  <div class="win-msg" id="winMsg">🏆 P1 の勝ち！</div>
+  <div id="winCountdown" style="font-size:16px;color:#fff;opacity:0.8"></div>
+  <button id="winLobbyBtn" onclick="winGoLobby()" disabled>ロビーへ戻る</button>
+  <button id="winRematchBtn" onclick="winRematch()" style="display:none;background:#e8820a;color:#fff;border-color:#b56000">🔄 もう一戦</button>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+Math.SQRT3 = Math.sqrt(3);
+
+/* ========== Firebase設定 ========== */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyBjLEKGCzS20siHjcmqne36hnZfioyfHOA",
+  authDomain:        "ninshogi-online.firebaseapp.com",
+  databaseURL:       "https://ninshogi-online-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "ninshogi-online",
+  storageBucket:     "ninshogi-online.firebasestorage.app",
+  messagingSenderId: "813256730560",
+  appId:             "1:813256730560:web:5fe4f447376b49990a0a25",
+  measurementId:     "G-FHLZ6R1B2C"
+};
+
+const OFFLINE_URL = "https://keisuke-mc.github.io/sin4ninshogi/";
+
+let db = null;
+try{
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.database();
+}catch(e){
+  console.warn('Firebase未設定（オフラインのみ）', e);
+}
+
+/* ========== 定数 ========== */
+const SZ = 24; // hex size
+const CX = 310, CY = 270;
+const ABBR = {
+  '輿論':'よ','旭光':'旭','軍教':'軍','竜化':'竜','外交':'外','魔叉':'魔',
+  '金権':'金','税関':'税','殖貿':'殖','宝':'宝','宣電':'宣','化':'化',
+  '尖占':'尖','弗':'弗'
+};
+const PROMOTE = {
+  '輿論':'旭光','軍教':'竜化','外交':'魔叉','殖貿':'宝','宣電':'化','尖占':'弗'
+};
+const UNPROMOTE = {};
+for (const [k, v] of Object.entries(PROMOTE)) UNPROMOTE[v] = k;
+UNPROMOTE['旭光'] = '輿論';
+const NO_PROMOTE = new Set(['金権','税関','旭光','竜化','魔叉','宝','化','弗']);
+const PROMOTED = new Set(['旭光','竜化','魔叉','宝','化','弗']);
+const P_NAME = ['先手(P1)', '中手(P2)', '後手(P3)'];
+const P_COL = ['#cc0000', '#0000cc', '#009900'];
+const P_ROT = [180, 300, 60];
+
+const STAMPS = ['👍', '💪', '✌️', '🎉', '😅', '😢', '🤔', '🔥'];
+
+/* ========== Hex Math ========== */
+function hexPx(q, r) {
+  return [
+    CX + SZ * (Math.SQRT3 * q + Math.SQRT3 / 2 * r),
+    CY + SZ * (1.5 * r)
+  ];
+}
+
+function isValid(q, r) {
+  return Math.abs(q) <= 6 && Math.abs(r) <= 6 && Math.abs(q + r) <= 6;
+}
+
+function K(q, r) { return q + ',' + r; }
+
+/* ========== Board Logic ========== */
+const BDIR = [
+  [1,-2], [1,-1], [2,-1], [1,0], [1,1], [0,1],
+  [-1,2], [-1,1], [-2,1], [-1,0], [-1,-1], [0,-1]
+];
+const P_FWD = [6, 10, 2];
+
+function bdir(p, cp) {
+  return BDIR[(cp % 12 + P_FWD[p]) % 12];
+}
+
+function isOwn(owner, q, r) {
+  if (owner === 0) return r <= -4;
+  if (owner === 1) return q + r >= 4;
+  return q <= -4;
+}
+
+function isEnemy(owner, q, r) {
+  for (let p = 0; p < 3; p++) {
+    if (p !== owner && isOwn(p, q, r)) return true;
+  }
+  return false;
+}
+
+function isParadise(q, r) { return q === 0 && r === 0; }
+
+function cellColor(q, r) {
+  if (isParadise(q, r)) return '#d4af37';
+  if (isOwn(0, q, r)) return '#ffcccc';
+  if (isOwn(1, q, r)) return '#ccccff';
+  if (isOwn(2, q, r)) return '#ccffcc';
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) % 2 === 0 ? '#f4d9a6' : '#e2b36d';
+}
+
+function getMoves(q, r, brd) {
+  const piece = brd.get(K(q, r));
+  if (!piece) return [];
+  const { type, owner } = piece;
+  const moves = [];
+
+  function step(cp) {
+    const [dq, dr] = bdir(owner, cp);
+    const nq = q + dq, nr = r + dr;
+    if (!isValid(nq, nr)) return;
+    const t = brd.get(K(nq, nr));
+    if (t && t.owner === owner) return;
+    moves.push([nq, nr]);
+  }
+
+  function slide(cp) {
+    const [dq, dr] = bdir(owner, cp);
+    let nq = q + dq, nr = r + dr;
+    while (isValid(nq, nr)) {
+      const t = brd.get(K(nq, nr));
+      if (t) {
+        if (t.owner !== owner) moves.push([nq, nr]);
+        break;
+      }
+      moves.push([nq, nr]);
+      nq += dq; nr += dr;
+    }
+  }
+
+  switch (type) {
+    case '輿論': [1,3,5,7,9,11].forEach(step); break;
+    case '旭光': for (let i = 1; i <= 12; i++) slide(i); break;
+    case '軍教': [1,3,9,11].forEach(slide); slide(6); break;
+    case '竜化': [1,3,5,7,9,11].forEach(slide); break;
+    case '外交': [12,2,4,6,8,10].forEach(slide); break;
+    case '魔叉': [12,2,4,6,8,10].forEach(slide); [1,3,5,7,9,11].forEach(step); break;
+    case '金権': case '弗': [12,1,3,6,9,11].forEach(step); break;
+    case '税関': [3,9,2,4,8,10].forEach(step); break;
+    case '殖貿': case '宝': [1,5,7,11,2,10].forEach(step); break;
+    case '宣電': case '化': [1,11].forEach(slide); break;
+    case '尖占': [1,11].forEach(step); break;
+  }
+  return moves;
+}
+
+function getDrops(type, owner, brd) {
+  const drops = [];
+  for (let q = -6; q <= 6; q++) {
+    for (let r = -6; r <= 6; r++) {
+      if (!isValid(q, r) || brd.has(K(q, r))) continue;
+      const tmp = new Map(brd);
+      tmp.set(K(q, r), { type, owner });
+      if (getMoves(q, r, tmp).length === 0) continue;
+      drops.push([q, r]);
+    }
+  }
+  return drops;
+}
+
+function inCheck(p, brd) {
+  let kq, kr;
+  for (const [k, pc] of brd) {
+    if (pc.owner === p && (pc.type === '輿論' || pc.type === '旭光')) {
+      [kq, kr] = k.split(',').map(Number);
+      break;
+    }
+  }
+  if (kq === undefined) return false;
+  for (const [k, pc] of brd) {
+    if (pc.owner === p || !alive[pc.owner]) continue;
+    const [aq, ar] = k.split(',').map(Number);
+    if (getMoves(aq, ar, brd).some(([mq, mr]) => mq === kq && mr === kr)) return true;
+  }
+  return false;
+}
+
+/* ========== Game State ========== */
+const svg = document.getElementById('boardSvg');
+let board = new Map(), hands = [[], [], []], alive = [true, true, true], turn = 0;
+let sel = null, validMoves = [], history = [];
+
+let isOnline = false;
+let roomId = null;
+let myPlayer = null;
+let isHost = false;
+let myUid = Math.random().toString(36).slice(2, 12);
+let myName = '';
+let roomNames = {};
+let roomRef = null;
+let stateRef = null;
+let roomListener = null;
+let stateListener = null;
+let localMoving = false;
+let lastRematchAt = 0;
+
+let stampCooldownUntil = 0;
+let stampCooldownTimer = null;
+let chatCoolUntil = 0;
+let chatCoolTimer = null;
+let chatListener = null;
+let stampListener = null;
+let chatEnabled = false;
+
+function updateStatus() {
+  const alive_names = alive.map((a, i) => a ? P_NAME[i] : '').filter(s => s).join(' | ');
+  const name = (isOnline && roomNames[turn]) ? roomNames[turn] : P_NAME[turn];
+  document.getElementById('turn-info').textContent = name;
+  document.getElementById('turn-display').textContent = `手番: ${name} (残: ${alive_names})`;
+}
+
+function doInit() {
+  if (!confirm('初期化しますか？')) return;
+  init();
+  if (isOnline) pushState();
+}
+
+function init() {
+  board = new Map();
+  hands = [[], [], []];
+  alive = [true, true, true];
+  turn = 0;
+  sel = null;
+  validMoves = [];
+  history = [];
+  placeInitial();
+  draw();
+  updateStatus();
+}
+
+function rot120(q, r) { return [-q - r, q]; }
+
+function placeInitial() {
+  const BACK = ['税関','金権','外交','輿論','軍教','金権','税関'];
+  for (let i = 0; i < 7; i++) board.set(K(i, -6), { type: BACK[i], owner: 0 });
+  board.set(K(-1, -5), { type: '宣電', owner: 0 });
+  board.set(K(1, -5), { type: '殖貿', owner: 0 });
+  board.set(K(4, -5), { type: '殖貿', owner: 0 });
+  board.set(K(6, -5), { type: '宣電', owner: 0 });
+  for (let i = -2; i <= 6; i++) board.set(K(i, -4), { type: '尖占', owner: 0 });
+
+  const p0 = [];
+  board.forEach((pc, k) => {
+    if (pc.owner === 0) p0.push([...k.split(',').map(Number), pc.type]);
+  });
+  for (const [q, r, t] of p0) {
+    const [q1, r1] = rot120(q, r);
+    board.set(K(q1, r1), { type: t, owner: 1 });
+    const [q2, r2] = rot120(q1, r1);
+    board.set(K(q2, r2), { type: t, owner: 2 });
+  }
+}
+
+function save() {
+  history.push({ board: new Map(board), hands: hands.map(h => [...h]), alive: [...alive], turn });
+}
+
+function doUndo() {
+  if (isOnline) { alert('オンライン対戦中は「待った」できません'); return; }
+  if (!history.length) return;
+  const s = history.pop();
+  board = s.board;
+  hands = s.hands;
+  alive = s.alive;
+  turn = s.turn;
+  sel = null;
+  validMoves = [];
+  draw();
+  updateStatus();
+}
+
+function nextTurn() {
+  const start = turn;
+  do { turn = (turn + 1) % 3; } while (!alive[turn] && turn !== start);
+  updateStatus();
+}
+
+function executeMove(fq, fr, tq, tr) {
+  save();
+  const piece = { ...board.get(K(fq, fr)) };
+  const cap = board.get(K(tq, tr));
+  board.delete(K(fq, fr));
+  board.set(K(tq, tr), piece);
+
+  if (cap) {
+    if (cap.type === '輿論' || cap.type === '旭光') {
+      alive[cap.owner] = false;
+      const remaining = alive.reduce((n, a) => n + (a ? 1 : 0), 0);
+      if (remaining === 1) {
+        const winner = alive.indexOf(true);
+        if (!isOnline) {
+          setTimeout(() => alert(`🏆 ${P_NAME[winner]}の勝利！`), 100);
+        } else {
+          roomRef && roomRef.update({ winner });
+        }
+        draw();
+        return;
+      }
+    } else {
+      hands[turn].push(UNPROMOTE[cap.type] || cap.type);
+    }
+  }
+
+  const np = board.get(K(tq, tr));
+  if (!NO_PROMOTE.has(np.type)) {
+    const wasEnemy = isEnemy(piece.owner, fq, fr);
+    const nowEnemy = isEnemy(np.owner, tq, tr);
+    const paradise = isParadise(tq, tr);
+    if (wasEnemy || nowEnemy || paradise) {
+      if (getMoves(tq, tr, board).length === 0) {
+        np.type = PROMOTE[np.type];
+      } else if (confirm(`${ABBR[np.type]}を成りますか？\n→ ${ABBR[PROMOTE[np.type]]}`)) {
+        np.type = PROMOTE[np.type];
+      }
+    }
+  }
+
+  if (isParadise(tq, tr) && (np.type === '輿論' || np.type === '旭光')) {
+    let safe = true;
+    for (const [k, pc] of board) {
+      if (pc.owner === np.owner || !alive[pc.owner]) continue;
+      const [aq, ar] = k.split(',').map(Number);
+      if (getMoves(aq, ar, board).some(([mq, mr]) => mq === 0 && mr === 0)) {
+        safe = false;
+        break;
+      }
+    }
+    if (safe) {
+      if (!isOnline) {
+        setTimeout(() => alert(`🏆 ${P_NAME[np.owner]}の楽園入城勝利！`), 100);
+      } else {
+        roomRef && roomRef.update({ winner: np.owner });
+      }
+      draw();
+      return;
+    }
+  }
+
+  for (let p = 0; p < 3; p++) {
+    if (p === turn || !alive[p]) continue;
+    if (inCheck(p, board)) {
+      showCheck();
+      break;
+    }
+  }
+
+  sel = null;
+  validMoves = [];
+  nextTurn();
+  draw();
+  if (isOnline) pushState();
+}
+
+function executeDrop(type, owner, tq, tr) {
+  save();
+  board.set(K(tq, tr), { type, owner });
+  const idx = hands[owner].indexOf(type);
+  if (idx >= 0) hands[owner].splice(idx, 1);
+
+  if (type === '尖占') {
+    for (let p = 0; p < 3; p++) {
+      if (p === owner || !alive[p]) continue;
+      if (inCheck(p, board)) {
+        let canEscape = false;
+        for (const [k, pc] of board) {
+          if (pc.owner !== p) continue;
+          const [aq, ar] = k.split(',').map(Number);
+          for (const [mq, mr] of getMoves(aq, ar, board)) {
+            const tmp = new Map(board);
+            tmp.delete(k);
+            tmp.set(K(mq, mr), { ...pc });
+            if (!inCheck(p, tmp)) { canEscape = true; break; }
+          }
+          if (canEscape) break;
+        }
+        if (!canEscape) {
+          doUndo();
+          alert('打ち尖占詰めは禁じ手です！');
+          return;
+        }
+      }
+    }
+  }
+
+  sel = null;
+  validMoves = [];
+  nextTurn();
+  draw();
+  if (isOnline) pushState();
+}
+
+/* ========== SVG Drawing ========== */
+function draw() {
+  svg.innerHTML = '';
+
+  for (let q = -6; q <= 6; q++) {
+    for (let r = -6; r <= 6; r++) {
+      if (!isValid(q, r)) continue;
+      const [px, py] = hexPx(q, r);
+
+      const hexPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const points = [];
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 3 * i - Math.PI / 6;
+        points.push([(px + SZ * Math.cos(a)), (py + SZ * Math.sin(a))]);
+      }
+      hexPoly.setAttribute('points', points.map(p => p.join(',')).join(' '));
+
+      let col = cellColor(q, r);
+      const isSel = sel && sel.q === q && sel.r === r;
+      const isMove = validMoves.some(([mq, mr]) => mq === q && mr === r);
+      const isOcc = board.has(K(q, r));
+
+      if (isSel) col = '#ffff00';
+      else if (isMove) col = isOcc ? '#ff5544' : '#8fd3ff';
+
+      hexPoly.setAttribute('fill', col);
+      hexPoly.setAttribute('stroke', '#8a6e3a');
+      hexPoly.setAttribute('stroke-width', '2');
+      hexPoly.setAttribute('style', 'cursor:pointer;');
+      hexPoly.onclick = () => handleCellClick(q, r);
+
+      svg.appendChild(hexPoly);
+
+      const piece = board.get(K(q, r));
+      if (piece) {
+        const col = P_COL[piece.owner];
+        const isProm = PROMOTED.has(piece.type);
+
+        const pent = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const pentPoints = [];
+        for (let i = 0; i < 5; i++) {
+          const a = Math.PI / 2.5 * i - Math.PI / 2;
+          const r = SZ * 0.65;
+          pentPoints.push([(px + r * Math.cos(a)), (py + r * Math.sin(a))]);
+        }
+        pent.setAttribute('points', pentPoints.map(p => p.join(',')).join(' '));
+        pent.setAttribute('fill', col);
+        pent.setAttribute('stroke', '#fff');
+        pent.setAttribute('stroke-width', '1.5');
+        svg.appendChild(pent);
+
+        if (isProm) {
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', px - SZ * 0.65);
+          rect.setAttribute('y', py - SZ * 0.4);
+          rect.setAttribute('width', SZ * 1.3);
+          rect.setAttribute('height', SZ * 0.8);
+          rect.setAttribute('fill', 'none');
+          rect.setAttribute('stroke', '#ff8800');
+          rect.setAttribute('stroke-width', '1');
+          svg.appendChild(rect);
+        }
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', px);
+        text.setAttribute('y', py + SZ * 0.08);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('font-size', SZ * 0.55);
+        text.setAttribute('font-family', 'serif');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('fill', '#fff');
+        text.setAttribute('pointer-events', 'none');
+        text.setAttribute('transform', `rotate(${P_ROT[piece.owner]} ${px} ${py})`);
+        text.textContent = ABBR[piece.type];
+        svg.appendChild(text);
+      }
+    }
+  }
+
+  [0, 1, 2].forEach(owner => {
+    const handEl = document.getElementById(`hand${owner}`);
+    const nameLabel = (isOnline && roomNames[owner]) ? roomNames[owner] : P_NAME[owner];
+    handEl.innerHTML = alive[owner]
+      ? `<h3>${nameLabel} 持ち駒</h3><div class=hand-list></div>`
+      : `<h3>${nameLabel}</h3>`;
+    handEl.classList.toggle('eliminated', !alive[owner]);
+
+    if (!alive[owner]) return;
+
+    const list = handEl.querySelector('.hand-list');
+    for (let i = 0; i < hands[owner].length; i++) {
+      const t = hands[owner][i];
+      const div = document.createElement('div');
+      div.className = 'hand-piece';
+      div.textContent = t;
+
+      if (sel && sel.kind === 'hand' && sel.owner === owner && sel.idx === i) {
+        div.classList.add('selected');
+      }
+
+      div.onclick = e => {
+        e.stopPropagation();
+        clickHandPiece(owner, i);
+      };
+
+      list.appendChild(div);
+    }
+  });
+}
+
+function handleCellClick(q, r) {
+  if (isOnline && myPlayer !== null && myPlayer !== turn) return;
+
+  if (sel && sel.kind === 'hand') {
+    if (validMoves.some(([mq, mr]) => mq === q && mr === r)) {
+      executeDrop(sel.type, sel.owner, q, r);
+    }
+    return;
+  }
+
+  if (sel) {
+    if (validMoves.some(([mq, mr]) => mq === q && mr === r)) {
+      executeMove(sel.q, sel.r, q, r);
+      return;
+    }
+    
+    const piece = board.get(K(q, r));
+    if (piece && piece.owner === turn && alive[turn]) {
+      sel = { q, r };
+      validMoves = getMoves(q, r, board);
+      draw();
+    } else {
+      sel = null;
+      validMoves = [];
+      draw();
+    }
+    return;
+  }
+
+  const piece = board.get(K(q, r));
+  if (piece && piece.owner === turn && alive[turn]) {
+    sel = { q, r };
+    validMoves = getMoves(q, r, board);
+    draw();
+  }
+}
+
+function clickHandPiece(owner, idx) {
+  if (owner !== turn) return;
+  if (isOnline && myPlayer !== null && myPlayer !== turn) return;
+
+  if (sel && sel.kind === 'hand' && sel.owner === owner && sel.idx === idx) {
+    sel = null;
+    validMoves = [];
+    draw();
+    return;
+  }
+  const type = hands[owner][idx];
+  sel = { kind: 'hand', owner, idx, type };
+  validMoves = getDrops(type, owner, board);
+  draw();
+}
+
+function showCheck() {
+  const el = document.getElementById('checkMsg');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 800);
+}
+
+function toggleHelp() {
+  document.getElementById('helpPanel').classList.toggle('show');
+}
+
+/* ========== Save/Load ========== */
+function exportCode() {
+  const data = { board: [...board], hands, alive, turn };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+}
+
+function importCode(code) {
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(code))));
+    board = new Map(data.board);
+    hands = data.hands;
+    alive = data.alive;
+    turn = data.turn;
+    sel = null;
+    validMoves = [];
+    history = [];
+    draw();
+    updateStatus();
+  } catch (e) {
+    alert('コードが壊れています');
+  }
+}
+
+function saveCode() {
+  const code = exportCode();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code)
+      .then(() => alert('コードをクリップボードにコピーしました'))
+      .catch(() => fallbackCopy(code));
+  } else {
+    fallbackCopy(code);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  alert('コードをコピーしました');
+}
+
+function loadCode() {
+  if (isOnline && !isHost) { alert('ホストのみ復元できます'); return; }
+  const code = prompt('保存したコードを貼り付けてください:');
+  if (code) importCode(code.trim());
+}
+
+/* ========== オンライン機能 ========== */
+function showLobby(screen, data) {
+  document.getElementById('lobby').style.display = 'flex';
+  renderLobby(screen, data);
+}
+
+function hideLobby() {
+  document.getElementById('lobby').style.display = 'none';
+}
+
+function renderLobby(screen, data) {
+  data = data || {};
+  const el = document.getElementById('lobbyContent');
+
+  if (screen === 'main') {
+    el.innerHTML = `
+      <h2>🎴 三人将棋</h2>
+      <p class="lp">オンライン対戦</p>
+      <button class="lb-btn lb-primary" onclick="goCreateRoom()">🏠 部屋を作る</button>
+      <button class="lb-btn" onclick="renderLobby('joinById')">🔢 ルームIDで参加</button>
+      <button class="lb-btn" onclick="startRandom()">🎲 ランダム対戦</button>
+      <hr>
+      <button class="lb-btn lb-sub" onclick="hideLobby();init()">👥 オフラインで遊ぶ</button>
+      ${!db ? '<p style="color:#c00;font-size:12px;margin-top:8px">⚠ Firebase未設定</p>' : ''}
+    `;
+  } else if (screen === 'createRoom') {
+    const newId = data.roomId || makeRoomId();
+    el.innerHTML = `
+      <h2>🏠 部屋を作る</h2>
+      <p class="lp">このIDを友達に伝えよう</p>
+      <div class="room-id-display" onclick="copyText('${newId}')">${newId}</div>
+      <p class="copy-hint">👆 タップでコピー</p>
+      <button class="lb-btn lb-primary" onclick="createRoom('${newId}')">この部屋を作成する</button>
+      <button class="lb-btn lb-sub" onclick="renderLobby('main')">← 戻る</button>
+    `;
+  } else if (screen === 'waiting') {
+    const count = data.count || 1;
+    const players = [];
+    for (let i = 0; i < 3; i++) {
+      const joined = i < count;
+      const isMe = joined && myPlayer === i;
+      const name = joined ? (roomNames[i] || P_NAME[i]) : '';
+      const cls = !joined ? 'player-slot'
+                 : isMe ? 'player-slot me' : 'player-slot filled';
+      const sub = !joined ? '<span style="font-size:9px">待機</span>'
+                 : isMe ? `<span style="font-size:9px">あなた</span><span style="font-size:9px">${name}</span>`
+                 : `<span style="font-size:9px">${name}</span>`;
+      players.push(`<div class="${cls}"><span>P${i+1}</span>${sub}</div>`);
+    }
+    el.innerHTML = `
+      <h2>🏠 待機中</h2>
+      <p class="lp">ルームID</p>
+      <div class="room-id-display" onclick="copyText('${roomId}')">${roomId}</div>
+      <p class="copy-hint">👆 タップでコピー</p>
+      <div class="player-slots">${players.join('')}</div>
+      <p class="status-msg">プレイヤー <strong>${count} / 3</strong></p>
+      ${isHost
+        ? `<label style="font-size:13px;display:flex;align-items:center;gap:6px;justify-content:center;margin:8px 0">
+             <input type="checkbox" id="chatEnableCheck" ${chatEnabled?'checked':''} onchange="hostToggleChat(this.checked)">
+             💬 チャット機能を有効にする
+           </label>` : ''
+      }
+      ${isHost
+        ? `<button class="lb-btn lb-primary" ${count < 3 ? 'disabled' : ''} onclick="hostStartGame()">
+             🎮 ゲーム開始${count < 3 ? ` (あと${3-count}人)` : ''}
+           </button>`
+        : `<p class="status-msg">ホストがゲームを開始するまでお待ちください</p>`
+      }
+      <button class="lb-btn lb-sub" onclick="leaveRoom();renderLobby('main')">← 退室する</button>
+    `;
+  } else if (screen === 'joinById') {
+    el.innerHTML = `
+      <h2>🔢 ルームIDで参加</h2>
+      <p class="lp">6桁のルームIDを入力</p>
+      <input id="roomIdInput" placeholder="ABC123" maxlength="6"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')joinById()">
+      <div id="joinError" class="error-msg"></div>
+      <button class="lb-btn lb-primary" onclick="joinById()">参加する</button>
+      <button class="lb-btn lb-sub" onclick="renderLobby('main')">← 戻る</button>
+    `;
+    setTimeout(() => {const el=document.getElementById('roomIdInput'); if(el) el.focus();}, 60);
+  } else if (screen === 'matching') {
+    el.innerHTML = `
+      <h2>🎲 マッチング中...</h2>
+      <div class="spinner"></div>
+      <p class="lp">対戦相手を探しています</p>
+      <button class="lb-btn lb-sub" onclick="cancelMatch()">キャンセル</button>
+    `;
+  } else if (screen === 'starting') {
+    const pColors = ['#e74c3c','#3498db','#2ecc71'];
+    const displayName = myName || `P${myPlayer+1}`;
+    el.innerHTML = `
+      <h2>🎮 ゲーム開始！</h2>
+      <p class="lp">あなたは</p>
+      <div style="font-size:44px;font-weight:bold;color:${pColors[myPlayer]};margin:8px 0">
+        ${displayName}
+      </div>
+      <p class="lp">（P${myPlayer+1}）として参加します</p>
+      <div class="spinner"></div>
+    `;
+    setTimeout(() => { hideLobby(); draw(); }, 1800);
+  }
+}
+
+function makeRoomId() {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = '';
+  for (let i = 0; i < 6; i++) id += c[Math.floor(Math.random() * c.length)];
+  return id;
+}
+
+function copyText(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => alert(`「${text}」をコピーしました`));
+  } else {
+    alert(`ルームID: ${text}`);
+  }
+}
+
+function goCreateRoom() {
+  if (!db) { alert('Firebase設定が必要です'); return; }
+  renderLobby('createRoom', { roomId: makeRoomId() });
+}
+
+async function createRoom(newRoomId) {
+  if (!db) return;
+  roomId = newRoomId;
+  myPlayer = 0;
+  isHost = true;
+  isOnline = true;
+  roomRef = db.ref(`rooms/${roomId}`);
+  stateRef = db.ref(`rooms/${roomId}/state`);
+  roomNames = { 0: myName || 'P1' };
+
+  init();
+
+  const stateJson = makeStateJson();
+  await roomRef.set({
+    state: stateJson,
+    players: { [myUid]: 0 },
+    playerCount: 1,
+    names: { 0: myName || 'P1' },
+    status: 'waiting',
+    hostUid: myUid,
+    createdAt: Date.now(),
+    isRandom: false
+  });
+
+  updateOnlineBadge(true);
+  listenRoom();
+  renderLobby('waiting', { count: 1 });
+  saveSession();
+}
+
+async function startRandom() {
+  if (!db) { alert('Firebase設定が必要です'); return; }
+  renderLobby('matching');
+
+  try {
+    const snap = await db.ref('rooms').orderByChild('status').equalTo('waiting').once('value');
+    let found = null;
+    snap.forEach(child => {
+      const d = child.val();
+      if (d.isRandom && d.playerCount < 3 && d.hostUid !== myUid && !found) {
+        found = { id: child.key, data: d };
+      }
+    });
+
+    if (found) {
+      await joinRoom(found.id, found.data);
+    } else {
+      const newId = makeRoomId();
+      roomId = newId;
+      myPlayer = 0;
+      isHost = true;
+      isOnline = true;
+      roomRef = db.ref(`rooms/${roomId}`);
+      stateRef = db.ref(`rooms/${roomId}/state`);
+
+      init();
+
+      const stateJson = makeStateJson();
+      await roomRef.set({
+        state: stateJson,
+        players: { [myUid]: 0 },
+        playerCount: 1,
+        status: 'waiting',
+        hostUid: myUid,
+        createdAt: Date.now(),
+        isRandom: true
+      });
+
+      updateOnlineBadge(true);
+      listenRoom();
+      renderLobby('waiting', { count: 1 });
+    }
+  } catch (e) {
+    alert('エラー: ' + e.message);
+    renderLobby('main');
+  }
+}
+
+function cancelMatch() {
+  leaveRoom();
+  renderLobby('main');
+}
+
+async function joinById() {
+  const input = document.getElementById('roomIdInput');
+  const errEl = document.getElementById('joinError');
+  const btn = document.querySelector('#lobbyContent .lb-btn.lb-primary');
+  const id = (input ? input.value.trim().toUpperCase() : '');
+
+  errEl.textContent = '';
+  if (id.length < 4) { errEl.textContent = 'ルームIDを入力してください'; return; }
+  if (!db) { alert('Firebase設定が必要です'); return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = '参加中...'; }
+
+  try {
+    const snap = await db.ref(`rooms/${id}`).once('value');
+    const data = snap.val();
+
+    if (!data) { errEl.textContent = '部屋が見つかりません'; if (btn) { btn.disabled = false; btn.textContent = '参加する'; } return; }
+    if (data.status !== 'waiting') { errEl.textContent = 'ゲーム中または終了しています'; if (btn) { btn.disabled = false; btn.textContent = '参加する'; } return; }
+    if (data.playerCount >= 3) { errEl.textContent = '部屋が満員です (3/3)'; if (btn) { btn.disabled = false; btn.textContent = '参加する'; } return; }
+
+    await joinRoom(id, data);
+  } catch (e) {
+    errEl.textContent = 'エラー: ' + e.message;
+    if (btn) { btn.disabled = false; btn.textContent = '参加する'; }
+  }
+}
+
+async function joinRoom(id, roomData) {
+  roomId = id;
+  isOnline = true;
+  isHost = false;
+  roomRef = db.ref(`rooms/${roomId}`);
+  stateRef = db.ref(`rooms/${roomId}/state`);
+
+  const existingPlayers = roomData.players || {};
+  myPlayer = Object.keys(existingPlayers).length;
+
+  await db.ref(`rooms/${roomId}/players/${myUid}`).set(myPlayer);
+  await db.ref(`rooms/${roomId}/playerCount`).set(myPlayer + 1);
+  await db.ref(`rooms/${roomId}/names/${myPlayer}`).set(myName || `P${myPlayer+1}`);
+
+  const stateSnap = await stateRef.once('value');
+  const d = JSON.parse(stateSnap.val());
+  board = new Map(d.board);
+  hands = d.hands;
+  alive = d.alive;
+  turn = d.turn;
+  if (d.names) roomNames = d.names;
+  draw();
+
+  updateOnlineBadge(true);
+  listenRoom();
+  renderLobby('waiting', { count: myPlayer + 1 });
+  saveSession();
+}
+
+function listenRoom() {
+  if (roomListener && roomRef) roomRef.off('value', roomListener);
+  if (stateListener && stateRef) stateRef.off('value', stateListener);
+
+  roomListener = roomRef.on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+
+    if (data.names) roomNames = data.names;
+    if (data.chatEnabled !== undefined) {
+      chatEnabled = data.chatEnabled;
+      updateChatUI();
+    }
+
+    const lobbyVisible = document.getElementById('lobby').style.display !== 'none';
+
+    if (data.status === 'waiting' && lobbyVisible) {
+      renderLobby('waiting', { count: data.playerCount || 1 });
+    } else if (data.status === 'playing') {
+      if (lobbyVisible) renderLobby('starting');
+      else draw();
+    }
+
+    if (data.winner !== undefined && data.winner !== lastRematchAt) {
+      showWinOverlay(data.winner);
+    }
+
+    if (data.rematchAt && data.rematchAt !== lastRematchAt && !isHost) {
+      lastRematchAt = data.rematchAt;
+      document.getElementById('winOverlay').style.display = 'none';
+      if (stateRef) {
+        stateRef.once('value').then(snap => {
+          const raw = snap.val();
+          if (!raw) return;
+          const d = JSON.parse(raw);
+          board = new Map(d.board);
+          hands = d.hands;
+          alive = d.alive;
+          turn = d.turn;
+          if (d.names) roomNames = d.names;
+          sel = null;
+          validMoves = [];
+          draw();
+        });
+      }
+    }
+  });
+
+  stateListener = stateRef.on('value', snap => {
+    if (localMoving) return;
+    const raw = snap.val();
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    board = new Map(d.board);
+    hands = d.hands;
+    alive = d.alive;
+    turn = d.turn;
+    if (d.names) roomNames = d.names;
+    sel = null;
+    validMoves = [];
+    draw();
+    updateWaitingBanner();
+  });
+
+  if (stampListener) db.ref(`rooms/${roomId}/stamp`).off('value', stampListener);
+  const stampListenStart = Date.now();
+  stampListener = db.ref(`rooms/${roomId}/stamp`).on('value', snap => {
+    const d = snap.val();
+    if (!d || !d.ts || d.ts <= stampListenStart || d.uid === myUid) return;
+    showStampDisplay(STAMPS[d.stampIdx % STAMPS.length]);
+  });
+
+  listenChat();
+}
+
+async function hostStartGame() {
+  if (!isHost || !db) return;
+  const roomSnap = await roomRef.once('value');
+  const roomData = roomSnap.val() || {};
+  myName = (document.getElementById('nameInput') ? document.getElementById('nameInput').value : myName) || '';
+  roomNames[0] = myName || 'P1';
+  await pushState();
+  draw();
+  saveSession();
+  await roomRef.update({ status: 'playing' });
+}
+
+async function leaveRoom() {
+  try {
+    if (db && roomRef) {
+      if (isHost) {
+        await roomRef.remove();
+      } else {
+        await db.ref(`rooms/${roomId}/players/${myUid}`).remove();
+      }
+    }
+  } catch (e) { }
+  if (stateListener && stateRef) stateRef.off('value', stateListener);
+  if (roomListener && roomRef) roomRef.off('value', roomListener);
+  if (chatListener && db && roomId) db.ref(`rooms/${roomId}/chat`).off('value', chatListener);
+  chatListener = null;
+  chatEnabled = false;
+  updateChatUI();
+  roomId = null;
+  myPlayer = null;
+  isHost = false;
+  isOnline = false;
+  roomRef = null;
+  stateRef = null;
+  stateListener = null;
+  roomListener = null;
+  updateOnlineBadge(false);
+  updateWaitingBanner();
+  clearSession();
+}
+
+function pushState() {
+  if (!isOnline || !stateRef) return Promise.resolve();
+  localMoving = true;
+  return stateRef.set(makeStateJson()).then(() => {
+    localMoving = false;
+  });
+}
+
+function makeStateJson() {
+  return JSON.stringify({ board: [...board], hands, alive, turn, names: roomNames });
+}
+
+function updateOnlineBadge(online) {
+  document.getElementById('onlineBadge').style.display = online ? '' : 'none';
+}
+
+function updateWaitingBanner() {
+  const banner = document.getElementById('waitingBanner');
+  if (isOnline && myPlayer !== null && myPlayer !== turn) {
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function showWinOverlay(winner) {
+  const el = document.getElementById('winOverlay');
+  const msgEl = document.getElementById('winMsg');
+  const lobbyBtn = document.getElementById('winLobbyBtn');
+  const rematchBtn = document.getElementById('winRematchBtn');
+  const countdown = document.getElementById('winCountdown');
+
+  const winnerName = (isOnline && roomNames[winner]) ? roomNames[winner] : P_NAME[winner];
+  msgEl.textContent = `🏆 ${winnerName} の勝ち！`;
+  el.style.display = 'flex';
+
+  lobbyBtn.disabled = true;
+  rematchBtn.style.display = (isOnline && isHost) ? 'inline-block' : 'none';
+  rematchBtn.disabled = false;
+
+  let sec = 10;
+  countdown.textContent = `${sec}秒後にボタンが有効になります`;
+  const cd = setInterval(() => {
+    sec--;
+    if (sec > 0) {
+      countdown.textContent = `${sec}秒後にボタンが有効になります`;
+    } else {
+      clearInterval(cd);
+      countdown.textContent = '';
+      lobbyBtn.disabled = false;
+      rematchBtn.disabled = false;
+    }
+  }, 1000);
+}
+
+function winGoLobby() {
+  document.getElementById('winOverlay').style.display = 'none';
+  leaveRoom();
+  showLobby('main');
+}
+
+async function winRematch() {
+  if (!isHost) return;
+  const now = Date.now();
+  lastRematchAt = now;
+  document.getElementById('winOverlay').style.display = 'none';
+
+  init();
+
+  await db.ref(`rooms/${roomId}/winner`).remove();
+  await roomRef.update({
+    status: 'playing',
+    rematchAt: now,
+    chat: null
+  });
+  await pushState();
+}
+
+/* チャット */
+async function hostToggleChat(val) {
+  if (!isHost || !db) return;
+  chatEnabled = val;
+  await roomRef.update({ chatEnabled: val });
+  updateChatUI();
+}
+
+function listenChat() {
+  if (!db || !roomId) return;
+  if (chatListener) db.ref(`rooms/${roomId}/chat`).off('value', chatListener);
+  chatListener = db.ref(`rooms/${roomId}/chat`).on('value', snap => {
+    const data = snap.val();
+    const msgs = data ? Object.values(data).sort((a, b) => a.ts - b.ts) : [];
+    renderChat(msgs);
+  });
+}
+
+function renderChat(msgs) {
+  const ul = document.getElementById('chatHistory');
+  if (!ul) return;
+  ul.innerHTML = '';
+  const recent = msgs.slice(-8);
+  recent.forEach(m => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="chat-name">${escHtml(m.name)}</span><span class="chat-colon">:</span><span class="chat-msg">${escHtml(m.text)}</span>`;
+    ul.appendChild(li);
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function sendChat() {
+  if (!chatEnabled || !db || !roomId) return;
+  if (Date.now() < chatCoolUntil) return;
+
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  const name = (myPlayer !== null && roomNames[myPlayer]) ? roomNames[myPlayer] : `P${(myPlayer ?? 0) + 1}`;
+
+  await db.ref(`rooms/${roomId}/chat`).push({
+    name, text, ts: Date.now()
+  });
+
+  input.value = '';
+  startChatCooldown();
+}
+
+function startChatCooldown() {
+  chatCoolUntil = Date.now() + 15000;
+  const btn = document.getElementById('chatSendBtn');
+  if (btn) btn.disabled = true;
+
+  let elapsed = 0;
+  if (chatCoolTimer) clearInterval(chatCoolTimer);
+  chatCoolTimer = setInterval(() => {
+    elapsed += 100;
+    if (elapsed >= 15000) {
+      clearInterval(chatCoolTimer);
+      chatCoolTimer = null;
+      if (btn) btn.disabled = false;
+      chatCoolUntil = 0;
+    }
+  }, 100);
+}
+
+function updateChatUI() {
+  const area = document.getElementById('chatArea');
+  if (!area) return;
+  area.style.display = (isOnline && chatEnabled) ? 'block' : 'none';
+}
+
+/* スタンプ */
+function toggleStampPicker(e) {
+  e.stopPropagation();
+  if (stampCooldownUntil > Date.now()) {
+    const left = Math.ceil((stampCooldownUntil - Date.now()) / 1000);
+    alert(`あと ${left} 秒待ってください`);
+    return;
+  }
+  const picker = document.getElementById('stampPickerPopup');
+  if (picker.classList.contains('open')) {
+    picker.classList.remove('open');
+    return;
+  }
+  picker.innerHTML = STAMPS.map((s, i) => `<div class="stamp-choice" onclick="sendStamp(${i})">${s}</div>`).join('');
+  picker.classList.add('open');
+}
+
+document.addEventListener('click', () => {
+  const p = document.getElementById('stampPickerPopup');
+  if (p) p.classList.remove('open');
+});
+
+function sendStamp(stampIdx) {
+  document.getElementById('stampPickerPopup').classList.remove('open');
+  showStampDisplay(STAMPS[stampIdx]);
+
+  if (isOnline && db && roomRef) {
+    db.ref(`rooms/${roomId}/stamp`).set({
+      player: myPlayer,
+      stampIdx: stampIdx,
+      uid: myUid,
+      ts: Date.now()
+    });
+  }
+
+  startStampCooldown();
+}
+
+function showStampDisplay(emoji) {
+  const el = document.createElement('div');
+  el.style.cssText = `
+    position:fixed;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    font-size:120px;
+    pointer-events:none;
+    z-index:9999;
+    animation:stampPop .25s ease, stampFade 2s forwards;
+  `;
+  el.textContent = emoji;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+function startStampCooldown() {
+  stampCooldownUntil = Date.now() + 15000;
+  const btn = document.getElementById('stampBtn');
+  const bar = document.getElementById('stampCooldownBar');
+  btn.classList.add('cooldown');
+
+  let elapsed = 0;
+  if (stampCooldownTimer) clearInterval(stampCooldownTimer);
+  stampCooldownTimer = setInterval(() => {
+    elapsed += 100;
+    const pct = Math.min(elapsed / 150, 100);
+    bar.style.width = pct + '%';
+    if (elapsed >= 15000) {
+      clearInterval(stampCooldownTimer);
+      stampCooldownTimer = null;
+      bar.style.width = '0%';
+      btn.classList.remove('cooldown');
+    }
+  }, 100);
+}
+
+/* セッション */
+const SESSION_KEY = 'ninshogi_session';
+
+function saveSession() {
+  if (!isOnline || !roomId || myPlayer === null) return;
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    roomId, myPlayer, myUid, myName, isHost
+  }));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function tryResumeSession() {
+  const s = loadSession();
+  if (!s || !s.roomId || !db) return false;
+
+  let snap;
+  try {
+    snap = await db.ref(`rooms/${s.roomId}`).once('value');
+  } catch (e) {
+    clearSession();
+    return false;
+  }
+
+  const data = snap.val();
+  if (!data) {
+    clearSession();
+    return false;
+  }
+
+  const ok = confirm(
+    `前回の対局が見つかりました。\n` +
+    `ルームID：${s.roomId}\n` +
+    `あなた：${s.myName}（P${s.myPlayer + 1}）\n\n` +
+    `対局に戻りますか？`
+  );
+  if (!ok) {
+    clearSession();
+    return false;
+  }
+
+  roomId = s.roomId;
+  isHost = s.isHost;
+  isOnline = true;
+  myPlayer = s.myPlayer;
+  myName = s.myName || '';
+  roomRef = db.ref(`rooms/${roomId}`);
+  stateRef = db.ref(`rooms/${roomId}/state`);
+
+  if (data.names) roomNames = data.names;
+  if (myPlayer !== null && !roomNames[myPlayer]) roomNames[myPlayer] = myName || `P${myPlayer + 1}`;
+
+  const stateSnap = await stateRef.once('value');
+  const raw = stateSnap.val();
+  if (raw) {
+    const d = JSON.parse(raw);
+    board = new Map(d.board);
+    hands = d.hands;
+    alive = d.alive;
+    turn = d.turn;
+    if (d.names && Object.keys(roomNames).length === 0) roomNames = d.names;
+  }
+
+  updateOnlineBadge(true);
+  listenRoom();
+  draw();
+  hideLobby();
+  return true;
+}
+
+/* ========== 起動 ========== */
+init();
+(async () => {
+  const resumed = await tryResumeSession();
+  if (!resumed) showLobby('main');
+})();
+</script>
+</body>
+</html>

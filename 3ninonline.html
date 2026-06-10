@@ -991,7 +991,7 @@ function draw() {
   svg.innerHTML = '';
 
   // 視点に応じた回転角度（自分の陣地を下にするため）
-  const boardRotation = (isOnline && myPlayer !== null) ? [180, 300, 60][myPlayer] : 0;
+  const boardRotation = (isOnline && myPlayer !== null) ? [180, 60, 300][myPlayer] : 0;
 
   // 回転グループを作成
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1111,7 +1111,8 @@ function draw() {
 }
 
 function handleCellClick(q, r) {
-  if (myPlayer !== null && myPlayer !== turn) return;
+  // オンライン時、自分の番でなければ無視
+  if (myPlayer !== null && turn !== myPlayer) return;
 
   if (sel && sel.kind === 'hand') {
     if (validMoves.some(([mq, mr]) => mq === q && mr === r)) {
@@ -1149,7 +1150,8 @@ function handleCellClick(q, r) {
 
 function clickHandPiece(owner, idx) {
   if (owner !== turn) return;
-  if (myPlayer !== null && myPlayer !== turn) return;
+  // オンライン時、自分の番でなければ無視
+  if (myPlayer !== null && turn !== myPlayer) return;
 
   if (sel && sel.kind === 'hand' && sel.owner === owner && sel.idx === idx) {
     sel = null;
@@ -1508,6 +1510,14 @@ function listenRoom() {
     if (data.status === 'waiting' && lobbyVisible) {
       renderLobby('waiting', { count: data.playerCount || 1 });
     } else if (data.status === 'playing') {
+      // finalUidOrderからmyPlayerを確定（ホスト・非ホスト両方）
+      if (data.finalUidOrder) {
+        const newIdx = data.finalUidOrder.indexOf(myUid);
+        if (newIdx !== -1 && myPlayer === null) {
+          myPlayer = newIdx;
+          saveSession();
+        }
+      }
       if (lobbyVisible) renderLobby('starting');
       else draw();
     }
@@ -1568,10 +1578,21 @@ function listenRoom() {
 
 async function hostStartGame() {
   if (!isHost || !db) return;
-  const roomSnap = await roomRef.once('value');
-  const roomData = roomSnap.val() || {};
+  
   myName = (document.getElementById('nameInput') ? document.getElementById('nameInput').value : myName) || '';
   roomNames[0] = myName || 'P1';
+  
+  // finalUidOrderを明示的に設定（ゲーム開始時）
+  const roomSnap = await roomRef.once('value');
+  const roomData = roomSnap.val() || {};
+  const uidOrder = roomData.uidOrder || [myUid];
+  const finalNames = Object.assign({}, roomData.names || {});
+  
+  // ホスト自身のmyPlayerを確定
+  myPlayer = uidOrder.indexOf(myUid);
+  roomNames = finalNames;
+  
+  await roomRef.update({ finalUidOrder: uidOrder, names: finalNames });
   await pushState();
   draw();
   saveSession();

@@ -823,6 +823,7 @@ function updateStatus() {
 }
 
 function doInit() {
+  if (!isHost) { alert('初期化はホストのみ可能です'); return; }
   if (!confirm('初期化しますか？')) return;
   init();
   if (isOnline) pushState();
@@ -869,17 +870,8 @@ function save() {
 }
 
 function doUndo() {
-  if (isOnline) { alert('オンライン対戦中は「待った」できません'); return; }
-  if (!history.length) return;
-  const s = history.pop();
-  board = s.board;
-  hands = s.hands;
-  alive = s.alive;
-  turn = s.turn;
-  sel = null;
-  validMoves = [];
-  draw();
-  updateStatus();
+  alert('オンライン対戦中は「待った」できません');
+  return;
 }
 
 function nextTurn() {
@@ -901,11 +893,7 @@ function executeMove(fq, fr, tq, tr) {
       const remaining = alive.reduce((n, a) => n + (a ? 1 : 0), 0);
       if (remaining === 1) {
         const winner = alive.indexOf(true);
-        if (!isOnline) {
-          setTimeout(() => alert(`🏆 ${P_NAME[winner]}の勝利！`), 100);
-        } else {
-          roomRef && roomRef.update({ winner });
-        }
+        roomRef && roomRef.update({ winner });
         draw();
         return;
       }
@@ -939,11 +927,7 @@ function executeMove(fq, fr, tq, tr) {
       }
     }
     if (safe) {
-      if (!isOnline) {
-        setTimeout(() => alert(`🏆 ${P_NAME[np.owner]}の楽園入城勝利！`), 100);
-      } else {
-        roomRef && roomRef.update({ winner: np.owner });
-      }
+      roomRef && roomRef.update({ winner: np.owner });
       draw();
       return;
     }
@@ -961,7 +945,7 @@ function executeMove(fq, fr, tq, tr) {
   validMoves = [];
   nextTurn();
   draw();
-  if (isOnline) pushState();
+  pushState();
 }
 
 function executeDrop(type, owner, tq, tr) {
@@ -999,12 +983,19 @@ function executeDrop(type, owner, tq, tr) {
   validMoves = [];
   nextTurn();
   draw();
-  if (isOnline) pushState();
+  pushState();
 }
 
 /* ========== SVG Drawing ========== */
 function draw() {
   svg.innerHTML = '';
+
+  // 視点に応じた回転角度（3人向け：120度ずつ）
+  const boardRotation = (isOnline && myPlayer !== null) ? myPlayer * 120 : 0;
+
+  // 回転グループを作成
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('transform', `rotate(${boardRotation} 310 270)`);
 
   for (let q = -6; q <= 6; q++) {
     for (let r = -6; r <= 6; r++) {
@@ -1033,7 +1024,7 @@ function draw() {
       hexPoly.setAttribute('style', 'cursor:pointer;');
       hexPoly.onclick = () => handleCellClick(q, r);
 
-      svg.appendChild(hexPoly);
+      g.appendChild(hexPoly);
 
       const piece = board.get(K(q, r));
       if (piece) {
@@ -1051,7 +1042,7 @@ function draw() {
         pent.setAttribute('fill', col);
         pent.setAttribute('stroke', '#fff');
         pent.setAttribute('stroke-width', '1.5');
-        svg.appendChild(pent);
+        g.appendChild(pent);
 
         if (isProm) {
           const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1062,7 +1053,7 @@ function draw() {
           rect.setAttribute('fill', 'none');
           rect.setAttribute('stroke', '#ff8800');
           rect.setAttribute('stroke-width', '1');
-          svg.appendChild(rect);
+          g.appendChild(rect);
         }
 
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -1075,12 +1066,18 @@ function draw() {
         text.setAttribute('font-weight', 'bold');
         text.setAttribute('fill', '#fff');
         text.setAttribute('pointer-events', 'none');
-        text.setAttribute('transform', `rotate(${P_ROT[piece.owner]} ${px} ${py})`);
+        
+        // 駒の回転は視点の回転補正を加える
+        const viewComp = (isOnline && myPlayer !== null) ? myPlayer * 120 : 0;
+        const finalRot = (P_ROT[piece.owner] + viewComp) % 360;
+        text.setAttribute('transform', `rotate(${finalRot} ${px} ${py})`);
         text.textContent = ABBR[piece.type];
-        svg.appendChild(text);
+        g.appendChild(text);
       }
     }
   }
+
+  svg.appendChild(g);
 
   [0, 1, 2].forEach(owner => {
     const handEl = document.getElementById(`hand${owner}`);
@@ -1114,7 +1111,7 @@ function draw() {
 }
 
 function handleCellClick(q, r) {
-  if (isOnline && myPlayer !== null && myPlayer !== turn) return;
+  if (myPlayer !== null && myPlayer !== turn) return;
 
   if (sel && sel.kind === 'hand') {
     if (validMoves.some(([mq, mr]) => mq === q && mr === r)) {
@@ -1152,7 +1149,7 @@ function handleCellClick(q, r) {
 
 function clickHandPiece(owner, idx) {
   if (owner !== turn) return;
-  if (isOnline && myPlayer !== null && myPlayer !== turn) return;
+  if (myPlayer !== null && myPlayer !== turn) return;
 
   if (sel && sel.kind === 'hand' && sel.owner === owner && sel.idx === idx) {
     sel = null;
@@ -1223,7 +1220,7 @@ function fallbackCopy(text) {
 }
 
 function loadCode() {
-  if (isOnline && !isHost) { alert('ホストのみ復元できます'); return; }
+  if (!isHost) { alert('ホストのみ復元できます'); return; }
   const code = prompt('保存したコードを貼り付けてください:');
   if (code) importCode(code.trim());
 }
@@ -1250,7 +1247,7 @@ function renderLobby(screen, data) {
       <button class="lb-btn" onclick="renderLobby('joinById')">🔢 ルームIDで参加</button>
       <button class="lb-btn" onclick="startRandom()">🎲 ランダム対戦</button>
       <hr>
-      <button class="lb-btn lb-sub" onclick="hideLobby();init()">👥 オフラインで遊ぶ</button>
+      <button class="lb-btn lb-sub" onclick="location.href='https://keisuke-mc.github.io/sin4ninshogi/'">👥 四人将棋へ</button>
       ${!db ? '<p style="color:#c00;font-size:12px;margin-top:8px">⚠ Firebase未設定</p>' : ''}
     `;
   } else if (screen === 'createRoom') {
@@ -1611,9 +1608,12 @@ async function leaveRoom() {
 }
 
 function pushState() {
-  if (!isOnline || !stateRef) return Promise.resolve();
+  if (!stateRef) return Promise.resolve();
   localMoving = true;
   return stateRef.set(makeStateJson()).then(() => {
+    localMoving = false;
+  }).catch(err => {
+    console.error('Firebase同期エラー:', err);
     localMoving = false;
   });
 }
@@ -1927,7 +1927,6 @@ async function tryResumeSession() {
 }
 
 /* ========== 起動 ========== */
-init();
 (async () => {
   const resumed = await tryResumeSession();
   if (!resumed) showLobby('main');

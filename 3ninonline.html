@@ -991,7 +991,7 @@ function draw() {
   svg.innerHTML = '';
 
   // 視点に応じた回転角度（自分の陣地を下にするため）
-  const boardRotation = (isOnline && myPlayer !== null) ? [180, 240, 120][myPlayer] : 0;
+  const boardRotation = (isOnline && myPlayer !== null) ? [180, 300, 60][myPlayer] : 0;
 
   // 回転グループを作成
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1042,6 +1042,7 @@ function draw() {
         pent.setAttribute('fill', col);
         pent.setAttribute('stroke', '#fff');
         pent.setAttribute('stroke-width', '1.5');
+        pent.setAttribute('transform', `rotate(${P_ROT[piece.owner]} ${px} ${py})`);
         g.appendChild(pent);
 
         if (isProm) {
@@ -1053,6 +1054,7 @@ function draw() {
           rect.setAttribute('fill', 'none');
           rect.setAttribute('stroke', '#ff8800');
           rect.setAttribute('stroke-width', '1');
+          rect.setAttribute('transform', `rotate(${P_ROT[piece.owner]} ${px} ${py})`);
           g.appendChild(rect);
         }
 

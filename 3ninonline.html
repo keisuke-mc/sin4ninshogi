@@ -1067,10 +1067,8 @@ function draw() {
         text.setAttribute('fill', '#fff');
         text.setAttribute('pointer-events', 'none');
         
-        // 駒の回転は視点の回転補正を加える
-        const viewRotation = (isOnline && myPlayer !== null) ? [180, 240, 120][myPlayer] : 0;
-        const finalRot = (P_ROT[piece.owner] - viewRotation + 360) % 360;
-        text.setAttribute('transform', `rotate(${finalRot} ${px} ${py})`);
+        // 駒の向きは盤面回転に含まれるので、P_ROTそのまま使用
+        text.setAttribute('transform', `rotate(${P_ROT[piece.owner]} ${px} ${py})`);
         text.textContent = ABBR[piece.type];
         g.appendChild(text);
       }

@@ -990,8 +990,8 @@ function executeDrop(type, owner, tq, tr) {
 function draw() {
   svg.innerHTML = '';
 
-  // 視点に応じた回転角度（3人向け：120度ずつ）
-  const boardRotation = (isOnline && myPlayer !== null) ? myPlayer * 120 : 0;
+  // 視点に応じた回転角度（自分の陣地を下にするため）
+  const boardRotation = (isOnline && myPlayer !== null) ? [180, 240, 120][myPlayer] : 0;
 
   // 回転グループを作成
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1068,8 +1068,8 @@ function draw() {
         text.setAttribute('pointer-events', 'none');
         
         // 駒の回転は視点の回転補正を加える
-        const viewComp = (isOnline && myPlayer !== null) ? myPlayer * 120 : 0;
-        const finalRot = (P_ROT[piece.owner] + viewComp) % 360;
+        const viewRotation = (isOnline && myPlayer !== null) ? [180, 240, 120][myPlayer] : 0;
+        const finalRot = (P_ROT[piece.owner] - viewRotation + 360) % 360;
         text.setAttribute('transform', `rotate(${finalRot} ${px} ${py})`);
         text.textContent = ABBR[piece.type];
         g.appendChild(text);
